@@ -35,6 +35,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper010.hpp"
 #include "mappers/mapper011.hpp"
 #include "mappers/mapper015.hpp"
+#include "mappers/mapper016.hpp"
+#include "mappers/mapper018.hpp"
 #include "mappers/mapper019.hpp"
 #include "mappers/mapper021.hpp"
 #include "mappers/mapper022.hpp"
@@ -42,20 +44,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper024.hpp"
 #include "mappers/mapper025.hpp"
 #include "mappers/mapper026.hpp"
+#include "mappers/mapper027.hpp"
 #include "mappers/mapper030.hpp"
 #include "mappers/mapper032.hpp"
 #include "mappers/mapper033.hpp"
 #include "mappers/mapper034.hpp"
+#include "mappers/mapper048.hpp"
 #include "mappers/mapper060.hpp"
+#include "mappers/mapper064.hpp"
+#include "mappers/mapper065.hpp"
 #include "mappers/mapper066.hpp"
+#include "mappers/mapper067.hpp"
 #include "mappers/mapper069.hpp"
 #include "mappers/mapper070.hpp"
 #include "mappers/mapper071.hpp"
+#include "mappers/mapper072.hpp"
 #include "mappers/mapper073.hpp"
 #include "mappers/mapper075.hpp"
 #include "mappers/mapper076.hpp"
 #include "mappers/mapper078.hpp"
 #include "mappers/mapper079.hpp"
+#include "mappers/mapper080.hpp"
+#include "mappers/mapper082.hpp"
 #include "mappers/mapper085.hpp"
 #include "mappers/mapper086.hpp"
 #include "mappers/mapper087.hpp"
@@ -65,6 +75,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper094.hpp"
 #include "mappers/mapper095.hpp"
 #include "mappers/mapper097.hpp"
+#include "mappers/mapper099.hpp"
+#include "mappers/mapper101.hpp"
+#include "mappers/mapper105.hpp"
 #include "mappers/mapper113.hpp"
 #include "mappers/mapper140.hpp"
 #include "mappers/mapper152.hpp"
@@ -72,10 +85,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper156.hpp"
 #include "mappers/mapper180.hpp"
 #include "mappers/mapper184.hpp"
+#include "mappers/mapper188.hpp"
 #include "mappers/mapper190.hpp"
 #include "mappers/mapper193.hpp"
 #include "mappers/mapper206.hpp"
 #include "mappers/mapper207.hpp"
+#include "mappers/mapper216.hpp"
 #include "mappers/mapper232.hpp"
 #include "mappers/mapper240.hpp"
 #include "mappers/mapper241.hpp"
@@ -293,6 +308,8 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  10: mapper = new Mapper010(); break;
     case  11: mapper = new Mapper011(); break;
     case  15: mapper = new Mapper015(); break;
+    case  16: mapper = new Mapper016(); break;
+    case  18: mapper = new Mapper018(); break;
     case  19: mapper = new Mapper019(); break;
     case  21: mapper = new Mapper021(); break;
     case  22: mapper = new Mapper022(); break;
@@ -300,45 +317,64 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  24: mapper = new Mapper024(); break;
     case  25: mapper = new Mapper025(); break;
     case  26: mapper = new Mapper026(); break;
+    case  27: mapper = new Mapper027(); break;
     case  30: mapper = new Mapper030(); break;
     case  32: mapper = new Mapper032(); break;
     case  33: mapper = new Mapper033(); break;
     case  34: mapper = new Mapper034(); break;
+    case  48: mapper = new Mapper048(); break;
     case  60: mapper = new Mapper060(); break;
+    case  64: mapper = new Mapper064(); break;
+    case  65: mapper = new Mapper065(); break;
     case  66: mapper = new Mapper066(); break;
+    case  67: mapper = new Mapper067(); break;
     case  69: mapper = new Mapper069(); break;
     case  70: mapper = new Mapper070(); break;
     case  71: mapper = new Mapper071(); break;
+    case  72: mapper = new Mapper072(); break;
     case  73: mapper = new Mapper073(); break;
     case  75: mapper = new Mapper075(); break;
     case  76: mapper = new Mapper076(); break;
     case  78: mapper = new Mapper078(); break;
     case  79: mapper = new Mapper079(); break;
+    case  80: mapper = new Mapper080(); break;
+    case  82: mapper = new Mapper082(); break;
     case  85: mapper = new Mapper085(); break;
     case  86: mapper = new Mapper086(); break;
     case  87: mapper = new Mapper087(); break;
     case  88: mapper = new Mapper088(); break;
     case  89: mapper = new Mapper089(); break;
+    case  92: mapper = new Mapper092(); break;
     case  93: mapper = new Mapper093(); break;
     case  94: mapper = new Mapper094(); break;
     case  95: mapper = new Mapper095(); break;
     case  97: mapper = new Mapper097(); break;
+    case  99: mapper = new Mapper099(); break;
+    case 101: mapper = new Mapper101(); break;
+    case 105: mapper = new Mapper105(); break;
     case 113: mapper = new Mapper113(); break;
     case 140: mapper = new Mapper140(); break;
+    case 151: mapper = new Mapper075(); break;
     case 152: mapper = new Mapper152(); break;
+    case 153: mapper = new Mapper153(); break;
     case 154: mapper = new Mapper154(); break;
+    case 155: mapper = new Mapper001(); break;
     case 156: mapper = new Mapper156(); break;
+    case 158: mapper = new Mapper158(); break;
     case 180: mapper = new Mapper180(); break;
     case 184: mapper = new Mapper184(); break;
+    case 188: mapper = new Mapper188(); break;
     case 190: mapper = new Mapper190(); break;
     case 193: mapper = new Mapper193(); break;
     case 206: mapper = new Mapper206(); break;
     case 207: mapper = new Mapper207(); break;
+    case 216: mapper = new Mapper216(); break;
     case 232: mapper = new Mapper232(); break;
     case 240: mapper = new Mapper240(); break;
     case 241: mapper = new Mapper241(); break;
     case 244: mapper = new Mapper244(); break;
     case 246: mapper = new Mapper246(); break;
+    case 552: mapper = new Mapper552(); break;
     default: break;
   }
 

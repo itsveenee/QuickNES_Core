@@ -155,6 +155,7 @@ protected:
 	
 	// Reference to emulator that uses this mapper.
 	Nes_Core& emu() const { return *emu_; }
+	nes_time_t mapper_clock() const { return emu().clock(); }
 	
 protected:
 	// Services derived classes provide
