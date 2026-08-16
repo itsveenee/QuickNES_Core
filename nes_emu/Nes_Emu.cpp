@@ -222,31 +222,66 @@ void Nes_Emu::load_state( Nes_State const& in )
 	load_state( STATIC_CAST(Nes_State_ const&,in) );
 }
 
-// Scratch state buffers used by the file save/load paths. Nes_State is
-// ~21 KB; this used to be heap-allocated on every save and every load,
-// which is wasteful and -- for runahead which serializes every frame --
-// shows up on the profiler. Libretro instantiates one Nes_Emu per
-// process and is single-threaded, so a pair of file-scope buffers is
-// safe. They are populated fresh inside save_state()/load_state() before
-// each use, so stale contents are never observed.
+// Scratch state buffers used by the file save/load paths.
+#ifndef PS2
+// On normal libretro targets these avoid heap traffic during runahead.
 static Nes_State s_save_state_scratch;
 static Nes_State s_load_state_scratch;
+#endif
 
 const char * Nes_Emu::load_state( Auto_File_Reader in )
 {
+#ifdef PS2
+	/*
+	 * SNESticle/PS2:
+	 * Construct Nes_State explicitly here instead of relying on the
+	 * file-scope C++ scratch object's dynamic constructor.
+	 *
+	 * Nes_State's constructor wires all of its internal pointers
+	 * (CPU/APU/PPU/RAM/mapper) to its embedded storage. A fresh object
+	 * also makes this path independent of static-constructor handling
+	 * in the final PS2 ELF/static archive.
+	 */
+	Nes_State* state = new Nes_State;
+	CHECK_ALLOC( state );
+#else
 	Nes_State* state = &s_load_state_scratch;
-	state->clear();  //initialize it
+#endif
+
+	state->clear();
 	const char * err = state->read( in );
 	if ( !err )
 		load_state( *state );
+
+#ifdef PS2
+	delete state;
+#endif
+
 	return err;
 }
 
 const char * Nes_Emu::save_state( Auto_File_Writer out ) const
 {
+#ifdef PS2
+	/*
+	 * Manual save/load is rare in SNESticle, so a ~21 KB temporary
+	 * allocation is preferable to depending on a global C++ scratch
+	 * object's constructor on the PS2.
+	 */
+	Nes_State* state = new Nes_State;
+	CHECK_ALLOC( state );
+#else
 	Nes_State* state = &s_save_state_scratch;
+#endif
+
 	save_state( state );
-	return state->write( out );
+	const char * err = state->write( out );
+
+#ifdef PS2
+	delete state;
+#endif
+
+	return err;
 }
 
 void Nes_Emu::write_chr( void const* p, long count, long offset )

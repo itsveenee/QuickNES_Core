@@ -45,6 +45,7 @@ public:
 	// Set mapper and information bytes. LSB and MSB are the standard iNES header
 	// bytes at offsets 6 and 7.
 	void set_mapper( int mapper_lsb, int mapper_msb );
+	void set_mapper_nes2( int mapper_lsb, int mapper_msb, int mapper_ext );
 	
 	unsigned mapper_data() const { return mapper; }
 	
@@ -53,6 +54,7 @@ public:
 	
 	// iNES mapper code
 	int mapper_code() const;
+	int submapper_code() const;
 	
 	// Pointer to beginning of PRG data
 	uint8_t      * prg()       { return prg_; }
@@ -70,16 +72,49 @@ private:
 	long prg_size_;
 	long chr_size_;
 	unsigned mapper;
+	unsigned mapper_code_value;
+	unsigned submapper;
 	long round_to_bank_size( long n );
 };
 
 inline bool Nes_Cart::has_battery_ram() const { return mapper & 0x02; }
 
+/* AURORA_NES2_HEADER_V1
+ * Keep legacy byte-6 flags in mapper for battery/mirroring, while exposing
+ * the decoded mapper ID independently. This lets NES 2.0 use mapper bits
+ * 8-11 and a submapper without changing the hot emulation path.
+ */
+/* AURORA_NES2_HEADER_V2
+ * Keep raw iNES flags in mapper (battery/mirroring), while storing the
+ * decoded mapper number and NES 2.0 submapper separately.
+ */
 inline void Nes_Cart::set_mapper( int mapper_lsb, int mapper_msb )
 {
 	mapper = mapper_msb * 0x100 + mapper_lsb;
+	mapper_code_value =
+		(mapper_msb & 0xF0) | ((mapper_lsb >> 4) & 0x0F);
+	submapper = 0;
 }
 
-inline int Nes_Cart::mapper_code() const { return ((mapper >> 8) & 0xf0) | ((mapper >> 4) & 0x0f); }
+inline void Nes_Cart::set_mapper_nes2(
+	int mapper_lsb, int mapper_msb, int mapper_ext )
+{
+	mapper = mapper_msb * 0x100 + mapper_lsb;
+	mapper_code_value =
+		((mapper_ext & 0x0F) << 8) |
+		(mapper_msb & 0xF0) |
+		((mapper_lsb >> 4) & 0x0F);
+	submapper = (mapper_ext >> 4) & 0x0F;
+}
+
+inline int Nes_Cart::mapper_code() const
+{
+	return (int) mapper_code_value;
+}
+
+inline int Nes_Cart::submapper_code() const
+{
+	return (int) submapper;
+}
 
 #endif

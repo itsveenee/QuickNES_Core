@@ -53,6 +53,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper071.hpp"
 #include "mappers/mapper073.hpp"
 #include "mappers/mapper075.hpp"
+#include "mappers/mapper076.hpp"
 #include "mappers/mapper078.hpp"
 #include "mappers/mapper079.hpp"
 #include "mappers/mapper085.hpp"
@@ -62,6 +63,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper089.hpp"
 #include "mappers/mapper093.hpp"
 #include "mappers/mapper094.hpp"
+#include "mappers/mapper095.hpp"
 #include "mappers/mapper097.hpp"
 #include "mappers/mapper113.hpp"
 #include "mappers/mapper140.hpp"
@@ -181,16 +183,54 @@ void Nes_Mapper::set_treble( blip_eq_t const& ) { }
 void Nes_Mapper::set_prg_bank( nes_addr_t addr, bank_size_t bs, int bank )
 {
 	int bank_size = 1 << bs;
-	
 	int bank_count = cart_->prg_size() >> bs;
+
+	/* AURORA_SMALL_PRG_MIRROR_V1
+	 * An undersized physical PRG ROM can legitimately be mirrored into a
+	 * larger mapper window (Galaxian: 8 KiB chip in a 16 KiB NROM bank).
+	 * The loader materializes that mirror for mapper 0, but this guard also
+	 * prevents bank %= 0 on any unusual small image.
+	 */
+	if ( bank_count <= 0 )
+	{
+		long physical_size = cart_->prg_size();
+
+		if ( physical_size <= 0 ||
+		     (physical_size % Nes_Cpu::page_size) != 0 )
+			return;
+
+		/* Mirror the physical ROM repeatedly into the larger CPU window.
+		 * map_code() works in 2 KiB pages, so no read can run past the
+		 * cartridge allocation. */
+		int mapped = 0;
+		while ( mapped < bank_size )
+		{
+			int chunk = (int) physical_size;
+			if ( chunk > bank_size - mapped )
+				chunk = bank_size - mapped;
+
+			emu().map_code( addr + mapped, chunk, cart_->prg() );
+			mapped += chunk;
+		}
+
+		if ( unsigned (addr - 0x6000) < 0x2000 )
+			emu().enable_prg_6000();
+		return;
+	}
+
 	if ( bank < 0 )
-		bank += bank_count;
-	
-	if ( bank >= bank_count )
+	{
 		bank %= bank_count;
-	
+		if ( bank < 0 )
+			bank += bank_count;
+	}
+	else if ( bank >= bank_count )
+	{
+		bank %= bank_count;
+	}
+
 	emu().map_code( addr, bank_size, cart_->prg() + (bank << bs) );
-	
+
 	if ( unsigned (addr - 0x6000) < 0x2000 )
 		emu().enable_prg_6000();
 }
@@ -271,6 +311,7 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  71: mapper = new Mapper071(); break;
     case  73: mapper = new Mapper073(); break;
     case  75: mapper = new Mapper075(); break;
+    case  76: mapper = new Mapper076(); break;
     case  78: mapper = new Mapper078(); break;
     case  79: mapper = new Mapper079(); break;
     case  85: mapper = new Mapper085(); break;
@@ -280,6 +321,7 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  89: mapper = new Mapper089(); break;
     case  93: mapper = new Mapper093(); break;
     case  94: mapper = new Mapper094(); break;
+    case  95: mapper = new Mapper095(); break;
     case  97: mapper = new Mapper097(); break;
     case 113: mapper = new Mapper113(); break;
     case 140: mapper = new Mapper140(); break;

@@ -50,7 +50,17 @@ public:
 
 		regs = data;
 		set_chr_bank( 0x0000, bank_4k, data & 0x07 );
-		set_chr_bank( 0x1000, bank_4k, ( data >> 4 ) & 0x07 );
+
+		/*
+		 * SUNSOFT-1: the high CHR slot has its most-significant
+		 * bank-select bit tied high on the board, so its valid
+		 * bank range is 4..7.
+		 */
+		set_chr_bank(
+			0x1000,
+			bank_4k,
+			((data >> 4) & 0x03) | 0x04
+		);
 
 		return true;
 	}

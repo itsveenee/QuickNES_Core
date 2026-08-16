@@ -302,14 +302,18 @@ void Nes_Core::write_io( nes_addr_t addr, int data )
 
 int Nes_Core::read_io( nes_addr_t addr )
 {
+	/* AURORA_NES_STROBE_HIGH_V1
+	 * With $4016 strobe held high, the NES controller port exposes the
+	 * current A button continuously instead of shifting the saved latch.
+	 */
 	if ( (addr & 0xFFFE) == 0x4016 )
 	{
-		// to do: to aid with recording, doesn't emulate transparent latch,
-		// so a game that held strobe at 1 and read $4016 or $4017 would not get
-		// the current A status as occurs on a NES
+		if ( joypad.w4016 & 1 )
+			return current_joypad [addr & 1] & 1;
+
 		unsigned long result = joypad.joypad_latches [addr & 1];
-		if ( !(joypad.w4016 & 1) )
-			joypad.joypad_latches [addr & 1] = (result >> 1) | 0x80000000;
+		joypad.joypad_latches [addr & 1] =
+			(result >> 1) | 0x80000000;
 		return result & 1;
 	}
 	

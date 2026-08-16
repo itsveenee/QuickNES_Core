@@ -46,6 +46,8 @@ void Nes_Cart::clear()
 	prg_size_ = 0;
 	chr_size_ = 0;
 	mapper = 0;
+	mapper_code_value = 0;
+	submapper = 0;
 }
 
 long Nes_Cart::round_to_bank_size( long n )
@@ -92,29 +94,139 @@ struct ines_header_t {
 };
 BOOST_STATIC_ASSERT( sizeof (ines_header_t) == 16 );
 
+/* AURORA_NES2_HEADER_V2
+ *
+ * NES 2.0 supports mapper bits 8-11, submappers, and exponent/multiplier
+ * ROM sizes. Galaxian is a real-world reason this matters: its physical
+ * PRG-ROM is only 8 KiB.
+ */
+static long AuroraNes2RomSize(
+	uint8_t lsb, uint8_t msb_nibble, long linear_unit )
+{
+	if ( msb_nibble != 0x0F )
+	{
+		unsigned long count =
+			((unsigned long) msb_nibble << 8) | (unsigned long) lsb;
+		unsigned long long bytes =
+			(unsigned long long) count *
+			(unsigned long long) linear_unit;
+
+		if ( bytes > 0x7FFFFFFFULL )
+			return -1;
+		return (long) bytes;
+	}
+
+	/* exponent/multiplier: 2^E * (2*M + 1) */
+	unsigned exponent = lsb >> 2;
+	unsigned multiplier = ((unsigned) lsb & 3u) * 2u + 1u;
+
+	if ( exponent >= 31 )
+		return -1;
+
+	unsigned long long bytes =
+		((unsigned long long) 1 << exponent) * multiplier;
+
+	if ( bytes > 0x7FFFFFFFULL )
+		return -1;
+
+	return (long) bytes;
+}
+
+static void AuroraMirrorRom(
+	uint8_t *data, long raw_size, long mapped_size )
+{
+	if ( !data || raw_size <= 0 || mapped_size <= raw_size )
+		return;
+
+	for ( long i = raw_size; i < mapped_size; i++ )
+		data [i] = data [i % raw_size];
+}
+
 const char * Nes_Cart::load_ines( Auto_File_Reader in )
 {
 	RETURN_ERR( in.open() );
-	
+
 	ines_header_t h;
 	RETURN_ERR( in->read( &h, sizeof h ) );
-	
+
 	if ( 0 != memcmp( h.signature, "NES\x1A", 4 ) )
 		return not_ines_file;
-	
-	if ( h.zero [7] ) // handle header defaced by a fucking idiot's handle
-		h.flags2 = 0;
-	
-	set_mapper( h.flags, h.flags2 );
-	
-	if ( h.flags & 0x04 ) // skip trainer
+
+	const bool nes2 = (h.flags2 & 0x0C) == 0x08;
+
+	/* Bytes 12-15 being non-zero is the classic sign of an archaic/dirty
+	 * iNES header. In that case, the upper mapper nibble is unreliable. */
+	const bool archaic_ines =
+		!nes2 && (h.zero [4] || h.zero [5] || h.zero [6] || h.zero [7]);
+
+	long raw_prg_bytes;
+	long raw_chr_bytes;
+
+	if ( nes2 )
+	{
+		set_mapper_nes2( h.flags, h.flags2, h.zero [0] );
+
+		const uint8_t size_msb = h.zero [1];
+
+		raw_prg_bytes = AuroraNes2RomSize(
+			h.prg_count, size_msb & 0x0F, 16 * 1024L );
+
+		raw_chr_bytes = AuroraNes2RomSize(
+			h.chr_count, (size_msb >> 4) & 0x0F, 8 * 1024L );
+	}
+	else
+	{
+		set_mapper( h.flags, archaic_ines ? 0 : h.flags2 );
+
+		/* Historical iNES convention: PRG count 0 means 256 banks. */
+		long prg_banks = h.prg_count ? (long) h.prg_count : 256L;
+		raw_prg_bytes = prg_banks * 16 * 1024L;
+		raw_chr_bytes = (long) h.chr_count * 8 * 1024L;
+	}
+
+	if ( raw_prg_bytes <= 0 || raw_chr_bytes < 0 )
+		return "Invalid NES ROM size";
+
+	if ( h.flags & 0x04 )
 		RETURN_ERR( in->skip( 512 ) );
-	
-	RETURN_ERR( resize_prg( h.prg_count * 16 * 1024L ) );
-	RETURN_ERR( resize_chr( h.chr_count * 8 * 1024L ) );
-	
-	RETURN_ERR( in->read( prg(), prg_size() ) );
-	RETURN_ERR( in->read( chr(), chr_size() ) );
-	
+
+	long mapped_prg_bytes = raw_prg_bytes;
+	long mapped_chr_bytes = raw_chr_bytes;
+
+	/* AURORA_SMALL_PRG_MIRROR_V1
+	 *
+	 * Galaxian's Namcot 3301 PCB has an 8 KiB PRG chip. The absent address
+	 * line mirrors that chip through the NROM CPU window. QuickNES normally
+	 * maps PRG in 16 KiB units during reset, so materialize the physical
+	 * mirror once at load time. There is zero per-frame cost.
+	 */
+	if ( mapper_code() == 0 && raw_prg_bytes == 8 * 1024L )
+		mapped_prg_bytes = 16 * 1024L;
+
+	/* AURORA_SAFE_CHR_MIRROR_V1
+	 *
+	 * NES 2.0 can describe CHR ROMs smaller than the normal 8 KiB PPU
+	 * window. If a small ROM divides 8 KiB evenly, mirror it once at load
+	 * time so normal QuickNES 1 KiB CHR page mapping remains valid.
+	 */
+	if ( raw_chr_bytes > 0 &&
+	     raw_chr_bytes < 8 * 1024L &&
+	     (8 * 1024L) % raw_chr_bytes == 0 )
+	{
+		mapped_chr_bytes = 8 * 1024L;
+	}
+
+	RETURN_ERR( resize_prg( mapped_prg_bytes ) );
+	RETURN_ERR( resize_chr( mapped_chr_bytes ) );
+
+	RETURN_ERR( in->read( prg(), raw_prg_bytes ) );
+	AuroraMirrorRom( prg(), raw_prg_bytes, mapped_prg_bytes );
+
+	if ( raw_chr_bytes > 0 )
+	{
+		RETURN_ERR( in->read( chr(), raw_chr_bytes ) );
+		AuroraMirrorRom( chr(), raw_chr_bytes, mapped_chr_bytes );
+	}
+
 	return 0;
 }

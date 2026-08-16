@@ -113,15 +113,24 @@ void Nes_Ppu_Impl::close_chr()
 
 void Nes_Ppu_Impl::set_chr_bank( int addr, int size, long data )
 {
-	if ( data + size > chr_size )
-		data %= chr_size;
-	
+	/* AURORA_SAFE_CHR_MIRROR_V1
+	 * Wrap each 1 KiB page independently. Besides avoiding an out-of-range
+	 * final page, this models missing high address lines as ROM mirroring.
+	 * No cost is added to pixel rendering; this runs only on bank changes.
+	 */
+	if ( chr_size <= 0 )
+		return;
+
 	int count = (unsigned) size / chr_page_size;
-	
 	int page = (unsigned) addr / chr_page_size;
+
 	while ( count-- )
 	{
-		chr_pages [page] = data - page * chr_page_size;
+		long mapped = data % chr_size;
+		if ( mapped < 0 )
+			mapped += chr_size;
+
+		chr_pages [page] = mapped - page * chr_page_size;
 		page++;
 		data += chr_page_size;
 	}
@@ -131,16 +140,20 @@ void Nes_Ppu_Impl::set_chr_bank_ex( int addr, int size, long data )
 {
 	mmc24_enabled = true;
 
-	//check( !chr_is_writable || addr == data ); // to do: is CHR RAM ever bank-switched?
-	
-	if ( data + size > chr_size )
-		data %= chr_size;
-	
+	/* AURORA_SAFE_CHR_MIRROR_V1 */
+	if ( chr_size <= 0 )
+		return;
+
 	int count = (unsigned) size / chr_page_size;
-	int page  = (unsigned) addr / chr_page_size;
+	int page = (unsigned) addr / chr_page_size;
+
 	while ( count-- )
 	{
-		chr_pages_ex [page] = data - page * chr_page_size;
+		long mapped = data % chr_size;
+		if ( mapped < 0 )
+			mapped += chr_size;
+
+		chr_pages_ex [page] = mapped - page * chr_page_size;
 		page++;
 		data += chr_page_size;
 	}

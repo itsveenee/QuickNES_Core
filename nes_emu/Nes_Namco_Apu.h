@@ -77,8 +77,17 @@ BOOST_STATIC_ASSERT( sizeof (namco_state_t) == 172 );
 inline uint8_t& Nes_Namco_Apu::access()
 {
 	int addr = addr_reg & 0x7f;
-	if ( addr_reg & 0x80 )
+
+	/*
+	 * N163 hardware clips the auto-incrementing internal RAM address
+	 * at $7F.  It does not wrap $7F -> $00.
+	 *
+	 * Preserve bit 7 as the auto-increment enable while saturating the
+	 * seven-bit address counter.
+	 */
+	if ( (addr_reg & 0x80) && addr < 0x7f )
 		addr_reg = (addr + 1) | 0x80;
+
 	return reg [addr];
 }
 
