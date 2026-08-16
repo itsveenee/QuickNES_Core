@@ -215,11 +215,12 @@ else ifneq (,$(filter $(platform), ps3 psl1ght))
 
 # PS2
 else ifeq ($(platform), ps2)
+   # SNESTICLE_RGB565_SOFTWARE: SNESticle recebe o framebuffer software RGB565.
 	TARGET := $(TARGET_NAME)_libretro_$(platform).a
 	CC = mips64r5900el-ps2-elf-gcc$(EXE_EXT)
 	CXX = mips64r5900el-ps2-elf-g++$(EXE_EXT)
 	AR = mips64r5900el-ps2-elf-ar$(EXE_EXT)
-	PLATFORM_DEFINES := -G0 -Wall -DPS2 -D_EE -DNO_UNALIGNED_ACCESS -DABGR1555 -fsingle-precision-constant
+	PLATFORM_DEFINES := -G0 -Wall -DPS2 -D_EE -DNO_UNALIGNED_ACCESS -fsingle-precision-constant
 	PLATFORM_DEFINES += -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include  -I$(PS2DEV)/gsKit/include
 	PLATFORM_DEFINES += -O3
 	PLATFORM_DEFINES += -DHAVE_NO_LANGEXTRA

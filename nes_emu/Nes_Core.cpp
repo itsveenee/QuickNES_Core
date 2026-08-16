@@ -232,6 +232,20 @@ void Nes_Core::apu_irq_changed( void* emu )
 	((Nes_Core*) emu)->irq_changed();
 }
 
+/* SNESTICLE_DUTY_SWAP_BEGIN
+ * Optional Famiclone pulse-duty swap supplied by the SNESticle frontend.
+ * It deliberately changes only future $4000/$4004 writes; unlike the old
+ * InfoNES hook, QuickNES does not expose its private live APU register image
+ * for an immediate replay when the option is toggled.
+ */
+static bool s_snesticle_duty_swap = false;
+
+extern "C" void quicknes_snesticle_set_duty_swap(int enable)
+{
+    s_snesticle_duty_swap = enable ? true : false;
+}
+/* SNESTICLE_DUTY_SWAP_END */
+
 void Nes_Core::write_io( nes_addr_t addr, int data )
 {
 	// sprite dma
@@ -259,6 +273,20 @@ void Nes_Core::write_io( nes_addr_t addr, int data )
 	// apu
 	if ( unsigned (addr - impl->apu.start_addr) <= impl->apu.end_addr - impl->apu.start_addr )
 	{
+		/* SNESTICLE_DUTY_SWAP_WRITE */
+		if (s_snesticle_duty_swap &&
+		    (addr == 0x4000 || addr == 0x4004))
+		{
+			int duty = (data >> 6) & 3;
+
+			if (duty == 1)
+				duty = 2;
+			else if (duty == 2)
+				duty = 1;
+
+			data = (data & 0x3F) | (duty << 6);
+		}
+
 		impl->apu.write_register( clock(), addr, data );
 		if ( wait_states_enabled )
 		{

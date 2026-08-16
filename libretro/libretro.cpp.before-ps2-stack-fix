@@ -1408,9 +1408,9 @@ void retro_run(void)
 	   // a PAL frame at 96 kHz is ~1920 mono samples, plus headroom for
 	   // frame-time jitter, so 4096 mono / 8192 stereo stays safe. At 44.1 kHz
 	   // this is the same generous margin it always had.
-	   static int16_t samples[4096];
+	   int16_t samples[4096];
 	   long read_samples = emu->read_samples(samples, 4096);
-	   static int16_t out_samples[8192];
+	   int16_t out_samples[8192];
 
 	   if ( current_buffer != &effects_buffer)
 	   {
