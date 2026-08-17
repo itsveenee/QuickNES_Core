@@ -79,6 +79,11 @@ public:
 	// Called when bit 12 of PPU's VRAM address changes from 0 to 1 due to
 	// $2006 and $2007 accesses (but not due to PPU scanline rendering).
 	virtual void a12_clocked();
+	/* AURORA_FINAL10_CHR_HOOKS_V1 */
+	virtual long chr_ram_size() const;
+	virtual long aux_chr_ram_size() const;
+	virtual bool needs_vram_address_hook() const;
+	virtual void vram_address_changed( nes_addr_t addr );
 	
 protected:
 	// Services provided for derived mapper classes
@@ -92,6 +97,10 @@ protected:
 	// Enable 8K of RAM at 0x6000-0x7FFF, optionally read-only.
 	void enable_sram( bool enabled = true, bool read_only = false );
 	
+	int sram_read_byte( nes_addr_t addr ) const;
+	void sram_write_byte( nes_addr_t addr, uint8_t data );
+	uint8_t* sram_data_ptr() const;
+
 	// Cause CPU writes within given address range to call mapper's write() function.
 	// Might map a larger address range, which the mapper can ignore and pass to
 	// Nes_Mapper::write(). The range 0x8000-0xffff is always intercepted by the mapper.
@@ -123,6 +132,8 @@ protected:
 	// Map 'size' bytes from 'CHR + bank * size' to PPU address space starting at 'addr'
 	void set_chr_bank( nes_addr_t addr, bank_size_t size, int bank );
 	void set_chr_bank_ex( nes_addr_t addr, bank_size_t size, int bank );
+	void set_chr_ram_bank( nes_addr_t addr, bank_size_t size, int bank );
+	void set_chr_read_or( int mask );
 
 	// Enable/disable MMC5 ExGrafix background rendering (flushes pending
 	// rendering first, so mid-frame mode changes are honoured).
@@ -130,6 +141,7 @@ protected:
 	
 	// Set PPU mirroring. All mappings implemented using mirror_manual().
 	void mirror_manual( int page0, int page1, int page2, int page3 );
+	void mirror_chr( int page, int chr_1k_bank );
 	void mirror_single( int page );
 	void mirror_horiz( int page = 0 );
 	void mirror_vert( int page = 0 );
@@ -203,6 +215,18 @@ inline void Nes_Mapper::register_state( void* p, unsigned s )
 	state_size = s;
 }
 
+inline int Nes_Mapper::sram_read_byte( nes_addr_t addr ) const
+{
+	return emu().mapper_sram_read( addr );
+}
+inline void Nes_Mapper::sram_write_byte( nes_addr_t addr, uint8_t data )
+{
+	emu().mapper_sram_write( addr, data );
+}
+inline uint8_t* Nes_Mapper::sram_data_ptr() const
+{
+	return emu().mapper_sram_data();
+}
 inline bool Nes_Mapper::write_intercepted( nes_time_t, nes_addr_t, int ) { return false; }
 
 inline int Nes_Mapper::read( nes_time_t, nes_addr_t ) { return -1; } // signal to caller

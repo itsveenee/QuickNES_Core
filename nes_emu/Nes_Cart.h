@@ -77,7 +77,11 @@ private:
 	long round_to_bank_size( long n );
 };
 
-inline bool Nes_Cart::has_battery_ram() const { return mapper & 0x02; }
+/* AURORA_FINAL10_EEPROM_BATTERY_V1 */
+inline bool Nes_Cart::has_battery_ram() const
+{
+	return (mapper & 0x02) || mapper_code_value == 157 || mapper_code_value == 159;
+}
 
 /* AURORA_NES2_HEADER_V1
  * Keep legacy byte-6 flags in mapper for battery/mirroring, while exposing

@@ -96,6 +96,21 @@ public: private: friend class Nes_Ppu;
 public: private: friend class Nes_Mapper;
 	void enable_prg_6000();
 	void enable_sram( bool enabled, bool read_only = false );
+	/* AURORA_FINAL10_SRAM_HELPERS_V1 */
+	int mapper_sram_read( nes_addr_t addr ) const
+	{
+		return impl->sram [addr & (impl_t::sram_size - 1)];
+	}
+	void mapper_sram_write( nes_addr_t addr, uint8_t data )
+	{
+		sram_present = true;
+		impl->sram [addr & (impl_t::sram_size - 1)] = data;
+	}
+	uint8_t* mapper_sram_data()
+	{
+		sram_present = true;
+		return impl->sram;
+	}
 	nes_time_t clock() const { return clock_; }
 	void add_mapper_intercept( nes_addr_t start, unsigned size, bool read, bool write );
 	

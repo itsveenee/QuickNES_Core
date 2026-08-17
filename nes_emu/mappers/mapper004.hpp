@@ -28,7 +28,7 @@ nes_time_t const last_scanline = first_scanline + 240 * Nes_Ppu::scanline_len;
 
 // MMC3
 
-class Mapper004 : public Nes_Mapper, mmc3_state_t {
+class Mapper004 : public Nes_Mapper, protected mmc3_state_t {
 public:
 	Mapper004()
 	{
@@ -151,7 +151,7 @@ public:
 		}
 	}
 
-	void update_chr_banks()
+	virtual void update_chr_banks()
 	{
 		int chr_xor = (mode >> 7 & 1) * 0x1000;
 		set_chr_bank( 0x0000 ^ chr_xor, bank_2k, banks [0] >> 1 );

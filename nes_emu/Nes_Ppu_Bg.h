@@ -70,6 +70,9 @@ while ( true )
 	count2 = 0;
 	addr -= 32;
 	attr_table = attr_table - nametable + nametable2;
+	/* AURORA_FINAL10_RENDER_VRAM_HOOK_V1 */
+	this->notify_vram_address( 0 );
+	this->notify_vram_address( 0x2000 | ((mapper_nt_addr ^ 0x400) & 0x0fff) );
 	nametable = nametable2;
 	if ( !count )
 		break;

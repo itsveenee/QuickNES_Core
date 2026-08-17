@@ -72,7 +72,18 @@ const char * Nes_Core::open( Nes_Cart const* new_cart )
 	if ( !mapper ) 
 		return unsupported_mapper;
 
+	ppu.set_vram_address_hook( mapper->needs_vram_address_hook() ? mapper : NULL );
+
 	RETURN_ERR( ppu.open_chr( new_cart->chr(), new_cart->chr_size() ) );
+	/* AURORA_FINAL10_SPECIAL_CHR_CONFIG_V1
+	 * Legacy open_chr above remains the normal loader for every mapper. */
+	if ( (new_cart->chr_size() == 0 && mapper->chr_ram_size() != 0x2000) ||
+	     mapper->aux_chr_ram_size() > 0 )
+	{
+		RETURN_ERR( ppu.configure_special_chr(
+			new_cart->chr(), new_cart->chr_size(),
+			mapper->chr_ram_size(), mapper->aux_chr_ram_size() ) );
+	}
 	
 	cart = new_cart;
 	memset( impl->unmapped_page, unmapped_fill, sizeof impl->unmapped_page );

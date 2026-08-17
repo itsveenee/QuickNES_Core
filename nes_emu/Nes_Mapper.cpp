@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper009.hpp"
 #include "mappers/mapper010.hpp"
 #include "mappers/mapper011.hpp"
+#include "mappers/mapper013.hpp"
 #include "mappers/mapper015.hpp"
 #include "mappers/mapper016.hpp"
 #include "mappers/mapper018.hpp"
@@ -55,10 +56,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper065.hpp"
 #include "mappers/mapper066.hpp"
 #include "mappers/mapper067.hpp"
+#include "mappers/mapper068.hpp"
 #include "mappers/mapper069.hpp"
 #include "mappers/mapper070.hpp"
 #include "mappers/mapper071.hpp"
 #include "mappers/mapper072.hpp"
+#include "mappers/mapper077.hpp"
 #include "mappers/mapper073.hpp"
 #include "mappers/mapper075.hpp"
 #include "mappers/mapper076.hpp"
@@ -74,22 +77,29 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper093.hpp"
 #include "mappers/mapper094.hpp"
 #include "mappers/mapper095.hpp"
+#include "mappers/mapper096.hpp"
 #include "mappers/mapper097.hpp"
 #include "mappers/mapper099.hpp"
 #include "mappers/mapper101.hpp"
 #include "mappers/mapper105.hpp"
 #include "mappers/mapper113.hpp"
+#include "mappers/mapper118.hpp"
+#include "mappers/mapper119.hpp"
 #include "mappers/mapper140.hpp"
 #include "mappers/mapper152.hpp"
 #include "mappers/mapper154.hpp"
 #include "mappers/mapper156.hpp"
+#include "mappers/mapper157.hpp"
+#include "mappers/mapper159.hpp"
 #include "mappers/mapper180.hpp"
 #include "mappers/mapper184.hpp"
+#include "mappers/mapper185.hpp"
 #include "mappers/mapper188.hpp"
 #include "mappers/mapper190.hpp"
 #include "mappers/mapper193.hpp"
 #include "mappers/mapper206.hpp"
 #include "mappers/mapper207.hpp"
+#include "mappers/mapper210.hpp"
 #include "mappers/mapper216.hpp"
 #include "mappers/mapper232.hpp"
 #include "mappers/mapper240.hpp"
@@ -179,6 +189,12 @@ nes_time_t Nes_Mapper::next_irq( nes_time_t ) { return no_irq; }
 
 void Nes_Mapper::a12_clocked() { }
 
+/* AURORA_FINAL10_DEFAULT_HOOKS_V1 */
+long Nes_Mapper::chr_ram_size() const { return 0x2000; }
+long Nes_Mapper::aux_chr_ram_size() const { return 0; }
+bool Nes_Mapper::needs_vram_address_hook() const { return false; }
+void Nes_Mapper::vram_address_changed( nes_addr_t ) { }
+
 void Nes_Mapper::run_until( nes_time_t ) { }
 
 void Nes_Mapper::end_frame( nes_time_t ) { }
@@ -262,6 +278,19 @@ void Nes_Mapper::set_chr_bank_ex( nes_addr_t addr, bank_size_t bs, int bank )
 	emu().ppu.set_chr_bank_ex( addr, 1 << bs, bank << bs );
 }
 
+void Nes_Mapper::set_chr_ram_bank( nes_addr_t addr, bank_size_t bs, int bank )
+{
+	emu().ppu.render_until( emu().clock() );
+	emu().ppu.set_chr_ram_bank( addr, 1 << bs, bank );
+}
+
+void Nes_Mapper::set_chr_read_or( int mask )
+{
+	emu().ppu.render_until( emu().clock() );
+	emu().ppu.set_chr_read_or( mask );
+}
+
+
 void Nes_Mapper::set_exgrafix( uint8_t const* exram, int chr_high )
 {
 	emu().ppu.render_until( emu().clock() );
@@ -273,6 +302,13 @@ void Nes_Mapper::mirror_manual( int page0, int page1, int page2, int page3 )
 	emu().ppu.render_bg_until( emu().clock() ); 
 	emu().ppu.set_nt_banks( page0, page1, page2, page3 );
 }
+
+void Nes_Mapper::mirror_chr( int page, int chr_1k_bank )
+{
+	emu().ppu.render_bg_until( emu().clock() );
+	emu().ppu.set_nt_bank_chr( page, chr_1k_bank );
+}
+
 
 #ifndef NDEBUG
 int Nes_Mapper::handle_bus_conflict( nes_addr_t addr, int data )
@@ -307,6 +343,7 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case   9: mapper = new Mapper009(); break;
     case  10: mapper = new Mapper010(); break;
     case  11: mapper = new Mapper011(); break;
+    case  13: mapper = new Mapper013(); break;
     case  15: mapper = new Mapper015(); break;
     case  16: mapper = new Mapper016(); break;
     case  18: mapper = new Mapper018(); break;
@@ -328,10 +365,12 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  65: mapper = new Mapper065(); break;
     case  66: mapper = new Mapper066(); break;
     case  67: mapper = new Mapper067(); break;
+    case  68: mapper = new Mapper068(); break;
     case  69: mapper = new Mapper069(); break;
     case  70: mapper = new Mapper070(); break;
     case  71: mapper = new Mapper071(); break;
     case  72: mapper = new Mapper072(); break;
+    case  77: mapper = new Mapper077(); break;
     case  73: mapper = new Mapper073(); break;
     case  75: mapper = new Mapper075(); break;
     case  76: mapper = new Mapper076(); break;
@@ -348,11 +387,14 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  93: mapper = new Mapper093(); break;
     case  94: mapper = new Mapper094(); break;
     case  95: mapper = new Mapper095(); break;
+    case  96: mapper = new Mapper096(); break;
     case  97: mapper = new Mapper097(); break;
     case  99: mapper = new Mapper099(); break;
     case 101: mapper = new Mapper101(); break;
     case 105: mapper = new Mapper105(); break;
     case 113: mapper = new Mapper113(); break;
+    case 118: mapper = new Mapper118(); break;
+    case 119: mapper = new Mapper119(); break;
     case 140: mapper = new Mapper140(); break;
     case 151: mapper = new Mapper075(); break;
     case 152: mapper = new Mapper152(); break;
@@ -360,14 +402,18 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case 154: mapper = new Mapper154(); break;
     case 155: mapper = new Mapper001(); break;
     case 156: mapper = new Mapper156(); break;
+    case 157: mapper = new Mapper157(); break;
     case 158: mapper = new Mapper158(); break;
+    case 159: mapper = new Mapper159(); break;
     case 180: mapper = new Mapper180(); break;
     case 184: mapper = new Mapper184(); break;
+    case 185: mapper = new Mapper185(); break;
     case 188: mapper = new Mapper188(); break;
     case 190: mapper = new Mapper190(); break;
     case 193: mapper = new Mapper193(); break;
     case 206: mapper = new Mapper206(); break;
     case 207: mapper = new Mapper207(); break;
+    case 210: mapper = new Mapper210(); break;
     case 216: mapper = new Mapper216(); break;
     case 232: mapper = new Mapper232(); break;
     case 240: mapper = new Mapper240(); break;

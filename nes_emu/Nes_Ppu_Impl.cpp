@@ -6,6 +6,7 @@
 #include <string.h>
 #include "blargg_endian.h"
 #include "Nes_State.h"
+#include "Nes_Mapper.h"
 #include <stdint.h>
 
 /* Copyright (C) 2004-2006 Shay Green. This module is free software; you
@@ -28,6 +29,18 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	impl = NULL;
 	chr_data = NULL;
 	chr_size = 0;
+	/* AURORA_FINAL10_SPECIAL_CHR_V1 */
+	special_chr_data = NULL;
+	special_chr_rom_size = 0;
+	special_chr_ram_offset = 0;
+	special_chr_ram_size = 0;
+	special_chr_mode = false;
+	chr_read_or_mask = 0;
+	nt_extra_ram_used = false;
+	special_nt_mode = false;
+	vram_address_hook = NULL;
+	for ( int i = 0; i < 4; ++i ) nt_writable [i] = true;
+	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i ) chr_page_writable [i] = false;
 	tile_cache = NULL;
 	host_palette = NULL;
 	max_palette_size = 0;
@@ -105,14 +118,87 @@ const char *Nes_Ppu_Impl::open_chr( uint8_t const* new_chr, long chr_data_size )
 	return 0;
 }
 
+/* AURORA_FINAL10_SPECIAL_CHR_V1 */
+const char *Nes_Ppu_Impl::configure_special_chr(
+    uint8_t const* rom, long rom_size, long requested_ram, long aux_ram )
+{
+	bool mixed = rom_size > 0 && aux_ram > 0;
+	bool pure = rom_size == 0 && requested_ram > 0x2000;
+	if ( !mixed && !pure ) return 0;
+
+	long ram_size = mixed ? aux_ram : requested_ram;
+	if ( ram_size <= 0 || ram_size > 0x8000 )
+		return "Invalid special CHR RAM size";
+
+	long total = (mixed ? rom_size : 0) + ram_size;
+	uint8_t* mem = new uint8_t [total];
+	CHECK_ALLOC( mem );
+	if ( mixed ) memcpy( mem, rom, rom_size );
+	memset( mem + (mixed ? rom_size : 0), 0xff, ram_size );
+
+	delete [] tile_cache_mem;
+	tile_cache_mem = NULL;
+	delete [] special_chr_data;
+	special_chr_data = mem;
+	special_chr_mode = true;
+	special_chr_rom_size = mixed ? rom_size : 0;
+	special_chr_ram_offset = mixed ? rom_size : 0;
+	special_chr_ram_size = ram_size;
+	chr_data = special_chr_data;
+	chr_size = total;
+	chr_is_writable = true;
+
+	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i )
+		chr_page_writable [i] = !mixed;
+
+	long tile_count = chr_size / bytes_per_tile;
+	tile_cache_mem = new uint8_t [tile_count * sizeof (cached_tile_t) * 2 + cache_line_size];
+	CHECK_ALLOC( tile_cache_mem );
+	tile_cache = (cached_tile_t*) (tile_cache_mem + cache_line_size -
+		(uintptr_t) tile_cache_mem % cache_line_size);
+	flipped_tiles = tile_cache + tile_count;
+	any_tiles_modified = false;
+	rebuild_chr( 0, chr_size );
+	set_chr_bank( 0, chr_addr_size, 0 );
+	return 0;
+}
+
+
 void Nes_Ppu_Impl::close_chr()
 {
+	delete [] special_chr_data;
+	special_chr_data = NULL;
+	special_chr_rom_size = 0;
+	special_chr_ram_offset = 0;
+	special_chr_ram_size = 0;
+	special_chr_mode = false;
+	chr_read_or_mask = 0;
+	special_nt_mode = false;
+	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i )
+		chr_page_writable [i] = false;
 	delete [] tile_cache_mem;
 	tile_cache_mem = NULL;
 }
 
 void Nes_Ppu_Impl::set_chr_bank( int addr, int size, long data )
 {
+	if ( special_chr_mode )
+	{
+		long source_size = special_chr_rom_size > 0 ? special_chr_rom_size : chr_size;
+		if ( source_size <= 0 ) return;
+		int count = (unsigned) size / chr_page_size;
+		int page = (unsigned) addr / chr_page_size;
+		while ( count-- )
+		{
+			long mapped = data % source_size;
+			if ( mapped < 0 ) mapped += source_size;
+			chr_pages [page] = mapped - page * chr_page_size;
+			chr_page_writable [page] = (special_chr_rom_size == 0);
+			page++; data += chr_page_size;
+		}
+		return;
+	}
+
 	/* AURORA_SAFE_CHR_MIRROR_V1
 	 * Wrap each 1 KiB page independently. Besides avoiding an out-of-range
 	 * final page, this models missing high address lines as ROM mirroring.
@@ -159,6 +245,60 @@ void Nes_Ppu_Impl::set_chr_bank_ex( int addr, int size, long data )
 	}
 }
 
+void Nes_Ppu_Impl::set_chr_ram_bank( int addr, int size, int bank )
+{
+	if ( !special_chr_mode || special_chr_ram_size <= 0 )
+	{
+		set_chr_bank( addr, size, bank );
+		return;
+	}
+	int count = (unsigned) size / chr_page_size;
+	int page = (unsigned) addr / chr_page_size;
+	long data = (long) bank * size;
+	while ( count-- )
+	{
+		long mapped = data % special_chr_ram_size;
+		if ( mapped < 0 ) mapped += special_chr_ram_size;
+		mapped += special_chr_ram_offset;
+		chr_pages [page] = mapped - page * chr_page_size;
+		chr_page_writable [page] = true;
+		page++; data += chr_page_size;
+	}
+}
+
+void Nes_Ppu_Impl::set_nt_bank_chr( int page, long bank )
+{
+	if ( (unsigned) page >= 4 || chr_size <= 0 ) return;
+	long offset = (bank * 0x400L) % chr_size;
+	if ( offset < 0 ) offset += chr_size;
+	nt_banks [page] = (uint8_t*) (chr_data + offset);
+	nt_writable [page] = false;
+	special_nt_mode = true;
+}
+
+void Nes_Ppu_Impl::notify_vram_address( int addr )
+{
+	if ( vram_address_hook )
+		vram_address_hook->vram_address_changed( (nes_addr_t) addr );
+}
+
+void Nes_Ppu_Impl::set_chr_read_or( int mask )
+{
+	uint8_t value = (uint8_t) mask;
+	if ( value == chr_read_or_mask ) return;
+	chr_read_or_mask = value;
+	if ( chr_data && chr_size > 0 )
+	{
+		if ( special_chr_mode || !chr_is_writable )
+		{
+			any_tiles_modified = false;
+			rebuild_chr( 0, chr_size );
+		}
+		else all_tiles_modified();
+	}
+}
+
+
 void Nes_Ppu_Impl::save_state( Nes_State_* out ) const
 {
 	*out->ppu = *this;
@@ -169,15 +309,21 @@ void Nes_Ppu_Impl::save_state( Nes_State_* out ) const
 	
 	out->nametable_size = 0x800;
 	memcpy( out->nametable, impl->nt_ram, 0x800 );
-	if ( nt_banks [3] >= &impl->nt_ram [0xC00] )
+	if ( nt_extra_ram_used )
 	{
 		// save extra nametable data in chr
 		out->nametable_size = 0x1000;
-		memcpy( out->chr, &impl->nt_ram [0x800], 0x800 );
+		/* AURORA_FINAL10_NT_STATE_V1 */
+		memcpy( out->nametable_extra, &impl->nt_ram [0x800], 0x800 );
 	}
 	
 	out->chr_size = 0;
-	if ( chr_is_writable )
+	if ( special_chr_mode && special_chr_ram_size > 0 )
+	{
+		out->chr_size = special_chr_ram_size;
+		memcpy( out->chr, special_chr_data + special_chr_ram_offset, out->chr_size );
+	}
+	else if ( chr_is_writable )
 	{
 		out->chr_size = chr_size;
 		memcpy( out->chr, impl->chr_ram, out->chr_size );
@@ -198,11 +344,19 @@ void Nes_Ppu_Impl::load_state( Nes_State_ const& in )
 	if ( in.nametable_size >= 0x800 )
 	{
 		if ( in.nametable_size > 0x800 )
-			memcpy( &impl->nt_ram [0x800], in.chr, 0x800 );
+			memcpy( &impl->nt_ram [0x800], in.nametable_extra, 0x800 );
 		memcpy( impl->nt_ram, in.nametable, 0x800 );
 	}
 	
-	if ( chr_is_writable && in.chr_size )
+	if ( special_chr_mode && special_chr_ram_size > 0 && in.chr_size )
+	{
+		long n = in.chr_size;
+		if ( n > special_chr_ram_size ) n = special_chr_ram_size;
+		memcpy( special_chr_data + special_chr_ram_offset, in.chr, n );
+		any_tiles_modified = false;
+		rebuild_chr( 0, chr_size );
+	}
+	else if ( chr_is_writable && in.chr_size )
 	{
 		memcpy( impl->chr_ram, in.chr, in.chr_size );
 		all_tiles_modified();
@@ -233,6 +387,8 @@ void Nes_Ppu_Impl::reset( bool full_reset )
 		vram_addr = 0;
 		w2003 = 0;
 		memset( impl->chr_ram, 0xff, sizeof impl->chr_ram );
+		if ( special_chr_mode && special_chr_ram_size > 0 )
+			memset( special_chr_data + special_chr_ram_offset, 0xff, special_chr_ram_size );
 		memset( impl->nt_ram, 0xff, sizeof impl->nt_ram );
 		memcpy( palette, initial_palette, sizeof palette );
 	}
@@ -240,7 +396,13 @@ void Nes_Ppu_Impl::reset( bool full_reset )
 	set_nt_banks( 0, 0, 0, 0 );
 	set_chr_bank( 0, chr_addr_size, 0 );
 	memset( spr_ram, 0xff, sizeof spr_ram );
-	all_tiles_modified();
+	if ( special_chr_mode )
+	{
+		any_tiles_modified = false;
+		rebuild_chr( 0, chr_size );
+	}
+	else
+		all_tiles_modified();
 	if ( max_palette_size > 0 )
 		memset( host_palette, 0, max_palette_size * sizeof *host_palette );
 }
@@ -302,7 +464,7 @@ inline unsigned long reorder( unsigned long n )
 	return ((n << 14) | n);
 }
 
-inline void Nes_Ppu_Impl::update_tile( int index )
+void Nes_Ppu_Impl::update_tile( int index )
 {
 	const uint8_t* in = chr_data + (index) * bytes_per_tile;
 	uint8_t* out = (uint8_t*) tile_cache [index];
@@ -318,10 +480,10 @@ inline void Nes_Ppu_Impl::update_tile( int index )
 		// 12345678 to A0E4B1F5C2G6D3H7
 		// ABCDEFGH
 		unsigned long c =
-				((reorder( in [0] ) & bit_mask) << 0) |
-				((reorder( in [8] ) & bit_mask) << 1) |
-				((reorder( in [1] ) & bit_mask) << 2) |
-				((reorder( in [9] ) & bit_mask) << 3);
+				((reorder( in [0] | chr_read_or_mask ) & bit_mask) << 0) |
+				((reorder( in [8] | chr_read_or_mask ) & bit_mask) << 1) |
+				((reorder( in [1] | chr_read_or_mask ) & bit_mask) << 2) |
+				((reorder( in [9] | chr_read_or_mask ) & bit_mask) << 3);
 		in += 2;
 		
 		SET_BE32( out, c );

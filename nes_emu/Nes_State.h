@@ -58,8 +58,10 @@ public:
 	enum { sram_max = 0x2000 };
 	enum { spr_ram_size = 0x100 };
 	enum { nametable_max = 0x800 };
-	enum { chr_max = 0x2000 };
+	/* AURORA_FINAL10_STATE_V1 */
+	enum { chr_max = 0x8000 };
 	uint8_t *ram, *sram, *spr_ram, *nametable, *chr;
+	uint8_t* nametable_extra;
 	nes_state_t             nes;
 	Nes_Cpu::registers_t*   cpu;
 	joypad_state_t*         joypad;
@@ -69,7 +71,8 @@ public:
 	
 	bool nes_valid, cpu_valid, joypad_valid, apu_valid, ppu_valid;
 	bool mapper_valid, ram_valid, spr_ram_valid;
-	short sram_size, nametable_size, chr_size;
+	short sram_size, nametable_size;
+	long chr_size;
 	
 	// Invalidate all state
 	void clear();
@@ -103,6 +106,7 @@ private:
 	uint8_t sram [sram_max];
 	uint8_t spr_ram [spr_ram_size];
 	uint8_t nametable [nametable_max];
+	uint8_t nametable_extra [nametable_max];
 	uint8_t chr [chr_max];
 	
 	friend class Nes_Emu;

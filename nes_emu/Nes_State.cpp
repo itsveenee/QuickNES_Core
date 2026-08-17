@@ -45,6 +45,8 @@ Nes_State::Nes_State()
 	Nes_State_::sram        = this->sram;
 	Nes_State_::spr_ram     = this->spr_ram;
 	Nes_State_::nametable   = this->nametable;
+	/* AURORA_FINAL10_STATE_V1 */
+	Nes_State_::nametable_extra = this->nametable_extra;
 	Nes_State_::chr         = this->chr;
 }
 
@@ -145,7 +147,7 @@ const char * Nes_State_::write_blocks( Nes_File_Writer& out ) const
 		RETURN_ERR( out.write_block_header( FOUR_CHAR('NTAB'), nametable_size ) );
 		RETURN_ERR( out.write( nametable, 0x800 ) );
 		if ( nametable_size > 0x800 )
-			RETURN_ERR( out.write( chr, 0x800 ) );
+			RETURN_ERR( out.write( nametable_extra, 0x800 ) );
 	}
 	
 	if ( chr_size )
@@ -259,7 +261,7 @@ const char * Nes_State_::read_blocks( Nes_File_Reader& in )
 			nametable_size = in.remain();
 			RETURN_ERR( in.read( nametable, 0x800 ) );
 			if ( nametable_size > 0x800 )
-				RETURN_ERR( in.read( chr, 0x800 ) );
+				RETURN_ERR( in.read( nametable_extra, 0x800 ) );
 			break;
 			
 		case FOUR_CHAR('LRAM'):

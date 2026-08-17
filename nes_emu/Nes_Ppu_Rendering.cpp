@@ -160,6 +160,8 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 		// handle hscroll change before next scanline
 		int hscroll_changed = (vram_addr ^ vram_temp) & 0x41f;
 		int addr = vram_addr;
+		/* AURORA_FINAL10_RENDER_VRAM_HOOK_V1 */
+		int mapper_nt_addr = addr;
 		if ( hscroll_changed )
 		{
 			vram_addr ^= hscroll_changed;
@@ -179,6 +181,8 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 		}
 		
 		// nametable change usually occurs in middle of row
+		notify_vram_address( 0 );
+		notify_vram_address( 0x2000 | (mapper_nt_addr & 0x0fff) );
 		uint8_t const* nametable = get_nametable( addr );
 		uint8_t const* nametable2 = get_nametable( addr ^ 0x400 );
 		int count2 = addr & 31;

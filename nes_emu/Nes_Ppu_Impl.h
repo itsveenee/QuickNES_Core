@@ -8,6 +8,7 @@
 
 #include "nes_data.h"
 class Nes_State_;
+class Nes_Mapper;
 
 class Nes_Ppu_Impl : public ppu_state_t {
 public:
@@ -18,6 +19,8 @@ public:
 	
 	// Setup
 	const char * open_chr( const uint8_t*, long size );
+	/* AURORA_FINAL10_SPECIAL_CHR_V1 */
+	const char * configure_special_chr( const uint8_t*, long, long, long );
 	void rebuild_chr( unsigned long begin, unsigned long end );
 	void close_chr();
 	void save_state( Nes_State_* out ) const;
@@ -43,6 +46,11 @@ public:
 	void set_nt_banks( int bank0, int bank1, int bank2, int bank3 );
 	void set_chr_bank( int addr, int size, long data );
 	void set_chr_bank_ex( int addr, int size, long data );
+	void set_chr_ram_bank( int addr, int size, int bank );
+	void set_chr_read_or( int mask );
+	void set_nt_bank_chr( int page, long chr_1k_bank );
+	void set_vram_address_hook( Nes_Mapper* m ) { vram_address_hook = m; }
+	void notify_vram_address( int addr );
 	
 	// Enable/disable MMC5 extended-attribute (ExGrafix) background rendering.
 	// exram is the 1 KiB ExRAM buffer (null disables); chr_high supplies the
@@ -151,6 +159,10 @@ private:
 		return ret;
 	}
 	uint8_t* nt_banks [4];
+	bool nt_writable [4];
+	bool nt_extra_ram_used;
+	bool special_nt_mode;
+	Nes_Mapper* vram_address_hook;
 
 	bool mmc24_enabled;
 	uint8_t mmc24_latched [2];
@@ -159,6 +171,13 @@ private:
 	uint8_t const* chr_data; // points to chr ram when there is no read-only data
 	uint8_t* chr_ram; // always points to impl->chr_ram; makes write_2007() faster
 	long chr_size;
+	uint8_t* special_chr_data;
+	long special_chr_rom_size;
+	long special_chr_ram_offset;
+	long special_chr_ram_size;
+	bool special_chr_mode;
+	bool chr_page_writable [chr_addr_size / chr_page_size];
+	uint8_t chr_read_or_mask;
 	uint8_t const* map_chr( int addr ) { return &chr_data [map_chr_addr( addr )]; }
 	
 	// CHR cache
@@ -175,11 +194,20 @@ private:
 
 inline void Nes_Ppu_Impl::set_nt_banks( int bank0, int bank1, int bank2, int bank3 )
 {
+	/* AURORA_FINAL10_INCREMENTAL_V3
+	 * Original QuickNES pointer mapping is kept exactly; metadata only
+	 * protects mapper-specific CHR-backed nametables. */
 	uint8_t* nt_ram = impl->nt_ram;
 	nt_banks [0] = &nt_ram [bank0 * 0x400];
 	nt_banks [1] = &nt_ram [bank1 * 0x400];
 	nt_banks [2] = &nt_ram [bank2 * 0x400];
 	nt_banks [3] = &nt_ram [bank3 * 0x400];
+	nt_writable [0] = true;
+	nt_writable [1] = true;
+	nt_writable [2] = true;
+	nt_writable [3] = true;
+	special_nt_mode = false;
+	nt_extra_ram_used = ((bank0 | bank1 | bank2 | bank3) & 2) != 0;
 }
 
 inline int Nes_Ppu_Impl::map_palette( int addr )
@@ -199,6 +227,64 @@ inline int Nes_Ppu_Impl::sprite_tile_index( uint8_t const* sprite ) const
 
 inline int Nes_Ppu_Impl::write_2007( int data )
 {
+	/* AURORA_FINAL10_INCREMENTAL_V3
+	 * Special path only. If neither flag is active, execution falls into
+	 * the exact write_2007 body captured from the pre-patch tree. */
+	if ( special_chr_mode || special_nt_mode )
+	{
+		int raw_addr = vram_addr;
+		int changed = raw_addr + addr_inc;
+		vram_addr = changed;
+		changed ^= raw_addr;
+		int addr = raw_addr & 0x3fff;
+		notify_vram_address( addr );
+
+		if ( (unsigned) addr < 0x2000 )
+		{
+			if ( special_chr_mode )
+			{
+				int page = addr / chr_page_size;
+				if ( chr_page_writable [page] )
+				{
+					long physical = chr_pages [page] + addr;
+					if ( (unsigned long) physical < (unsigned long) chr_size )
+					{
+						special_chr_data [physical] = (uint8_t) data;
+						update_tile( (int) physical / bytes_per_tile );
+					}
+				}
+			}
+			else
+			{
+				/* Mapper 68: keep the legacy CHR-ROM shadow-write behavior. */
+				unsigned const divisor = bytes_per_tile * 8;
+				int mod_index = (unsigned) addr / divisor % (0x4000 / divisor);
+				if ( (unsigned) mod_index < 0x2000 / divisor )
+				{
+					int mod = modified_tiles [mod_index];
+					chr_ram [addr] = data;
+					any_tiles_modified = true;
+					modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+				}
+			}
+		}
+		else if ( addr < 0x3f00 )
+		{
+			int page = (addr >> 10) & 3;
+			if ( nt_writable [page] )
+				get_nametable( addr ) [addr & 0x3ff] = data;
+		}
+		else
+		{
+			data &= 0x3f;
+			uint8_t& entry = palette [map_palette( addr )];
+			int palette_diff = entry ^ data;
+			entry = data;
+			if ( palette_diff ) palette_changed = 0x18;
+		}
+		return changed;
+	}
+
 	int addr = vram_addr;
 	uint8_t * chr_ram = this->chr_ram; // pre-read
 	int changed = addr + addr_inc;
@@ -233,8 +319,8 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 	}
 	
 	return changed;
-}
 
+}
 inline void Nes_Ppu_Impl::begin_frame()
 {
 	palette_changed = 0x18;

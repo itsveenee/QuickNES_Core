@@ -29,6 +29,11 @@ public:
         register_state(&s, sizeof s);
     }
 
+    long chr_ram_size() const
+    {
+        return 0x8000;
+    }
+
     bool needs_vram_address_hook() const
     {
         return true;

@@ -230,7 +230,7 @@ inline int Nes_Ppu_Impl::first_opaque_sprite_line()
 	{
 		for ( int n = 8; n--; p++ )
 		{
-			if ( p [0] | p [8] )
+			if ( (p [0] | chr_read_or_mask) | (p [8] | chr_read_or_mask) )
 				return line;
 			line++;
 		}
@@ -379,7 +379,8 @@ inline int Nes_Ppu_Impl::read_2007( int addr )
 	int result = r2007;
 	if ( addr < 0x2000 )
 	{
-		r2007 = *map_chr( addr );
+		/* AURORA_FINAL10_RUNTIME_HOOKS_V1 */
+		r2007 = *map_chr( addr ) | chr_read_or_mask;
 	}
 	else
 	{
@@ -420,6 +421,7 @@ int Nes_Ppu::read( unsigned addr, nes_time_t time )
 				emu.mapper->a12_clocked();
 				addr = vram_addr - addr_inc; // avoid having to save across func call
 			}
+			notify_vram_address( addr & 0x3fff );
 			int result = read_2007( addr & 0x3fff );
 			poke_open_bus( time, result, ( ( addr & 0x3fff ) >= 0x3f00 ) ? 0x3F : ~0 );
 			return result;
@@ -543,6 +545,7 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 			{
 				int changed = ~vram_addr & vram_temp;
 				vram_addr = vram_temp = (vram_temp & 0xff00) | data;
+				notify_vram_address( vram_addr & 0x3fff );
 				if ( changed & vaddr_clock_mask )
 					emu.mapper->a12_clocked();
 			}
