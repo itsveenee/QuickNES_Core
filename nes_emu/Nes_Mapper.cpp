@@ -81,6 +81,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper097.hpp"
 #include "mappers/mapper099.hpp"
 #include "mappers/mapper101.hpp"
+#include "mappers/mapper103.hpp"
 #include "mappers/mapper105.hpp"
 #include "mappers/mapper113.hpp"
 #include "mappers/mapper118.hpp"
@@ -106,6 +107,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper241.hpp"
 #include "mappers/mapper244.hpp"
 #include "mappers/mapper246.hpp"
+#include "mappers/mapper347.hpp"
 
 Nes_Mapper::Nes_Mapper()
 {
@@ -391,6 +393,7 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case  97: mapper = new Mapper097(); break;
     case  99: mapper = new Mapper099(); break;
     case 101: mapper = new Mapper101(); break;
+    case 103: mapper = new Mapper103(); break;
     case 105: mapper = new Mapper105(); break;
     case 113: mapper = new Mapper113(); break;
     case 118: mapper = new Mapper118(); break;
@@ -420,6 +423,7 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case 241: mapper = new Mapper241(); break;
     case 244: mapper = new Mapper244(); break;
     case 246: mapper = new Mapper246(); break;
+    case 347: mapper = new Mapper347(); break;
     case 552: mapper = new Mapper552(); break;
     default: break;
   }

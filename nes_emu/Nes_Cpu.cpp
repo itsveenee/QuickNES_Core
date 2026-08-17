@@ -46,11 +46,12 @@ void Nes_Cpu::reset( void const* unmapped_page )
 	irq_time_ = LONG_MAX / 2 + 1;
 	end_time_ = LONG_MAX / 2 + 1;
 	
-	set_code_page( 0, low_mem );
-	set_code_page( 1, low_mem );
-	set_code_page( 2, low_mem );
-	set_code_page( 3, low_mem );
-	for ( int i = 4; i < page_count + 1; i++ )
+	/* AURORA_MEGA_V5_CPU_1K_LOW_MEM_MAP
+	 * With 1 KiB code pages, the mirrored 2 KiB CPU RAM occupies eight
+	 * pages through $1FFF. Alternate the two physical 1 KiB halves. */
+	for ( int i = 0; i < 8; i++ )
+		set_code_page( i, low_mem + ((i & 1) * page_size) );
+	for ( int i = 8; i < page_count + 1; i++ )
 		set_code_page( i, (uint8_t*) unmapped_page );
 }
 

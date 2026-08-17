@@ -19,9 +19,9 @@ public:
 	
 	// Map code memory (memory accessed via the program counter). Start and size
 	// must be multiple of page_size.
-	enum { page_bits = 11 };
-	enum { page_count = 0x10000 >> page_bits };
-	enum { page_size = 1L << page_bits };
+	/* AURORA_MEGA_V5_CPU_1K_CODE_PAGES
+	 * KS7030 exposes real 1 KiB PRG/RAM boundaries. */
+	enum { page_bits = 10, page_size = 1 << page_bits, page_count = 0x10000 / page_size };
 	void map_code( nes_addr_t start, unsigned size, void const* code );
 	
 	// Access memory as the emulated CPU does.

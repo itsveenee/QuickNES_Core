@@ -224,7 +224,11 @@ else ifeq ($(platform), ps2)
 	PLATFORM_DEFINES += -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include  -I$(PS2DEV)/gsKit/include
 	PLATFORM_DEFINES += -O3
 	PLATFORM_DEFINES += -DHAVE_NO_LANGEXTRA
-	CXXFLAGS += -fno-rtti -fno-exceptions -ffast-math
+	# AURORA_MEGA_V4_QUICKNES_SAFE_PS2_FLAGS
+	# Runtime emulation is integer-heavy; preserve -O3 but do not let
+	# fast-math relax floating-point semantics at API/presentation edges.
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	PLATFORM_DEFINES += -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks -fno-aggressive-loop-optimizations
 	STATIC_LINKING = 1
 
 # PSP
@@ -652,6 +656,14 @@ CORE_DIR := .
 include Makefile.common
 
 OBJECTS := $(SOURCES_CXX:.cpp=.o)
+
+# AURORA_MEGA_V4_QUICKNES_BUILD_DEP
+# `make` does not normally rebuild objects merely because compile flags in the
+# Makefile changed.  On PS2, make the flag files explicit prerequisites so the
+# static archive cannot silently retain objects built with old semantics.
+ifeq ($(platform), ps2)
+$(OBJECTS): Makefile Makefile.common
+endif
 
 DEFINES := -D__LIBRETRO__ $(PLATFORM_DEFINES) -Wall
 
