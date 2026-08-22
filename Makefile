@@ -657,6 +657,17 @@ include Makefile.common
 
 OBJECTS := $(SOURCES_CXX:.cpp=.o)
 
+# AURORA_QUICKNES_HEADER_DEPS_V1_20260822
+# QuickNES changes several class layouts through headers (Nes_Core.h,
+# Nes_Cart.h, Nes_State.h, mapper .hpp files, etc.). Track compiler-generated
+# header dependencies on PS2 so an incremental build can never mix objects
+# built against different C++ layouts inside quicknes_libretro_ps2.a.
+ifeq ($(platform), ps2)
+DEPFLAGS := -MMD -MP
+DEPS := $(OBJECTS:.o=.d)
+-include $(DEPS)
+endif
+
 # AURORA_MEGA_V4_QUICKNES_BUILD_DEP
 # `make` does not normally rebuild objects merely because compile flags in the
 # Makefile changed.  On PS2, make the flag files explicit prerequisites so the
@@ -709,16 +720,16 @@ else
 endif
 	
 %.o: %.cpp
-	$(CXX) -c $(OBJOUT)$@ $< $(CXXFLAGS) $(INCFLAGS)
+	$(CXX) -c $(OBJOUT)$@ $< $(CXXFLAGS) $(INCFLAGS) $(DEPFLAGS)
 
 %.o: %.c
-	$(CXX) -c $(OBJOUT)$@ $< $(CXXFLAGS) $(INCFLAGS)
+	$(CXX) -c $(OBJOUT)$@ $< $(CXXFLAGS) $(INCFLAGS) $(DEPFLAGS)
 
 clean-objs:
-	rm -f $(OBJECTS)
+	rm -f $(OBJECTS) $(DEPS)
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f $(OBJECTS) $(DEPS)
 	rm -f $(TARGET)
 
 # Regenerate the baked deterministic audio tables from their float reference
