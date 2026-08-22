@@ -55,7 +55,7 @@ public:
 	const char * read_blocks( Nes_File_Reader& );
 	
 	enum { ram_size = 0x800 };
-	enum { sram_max = 0x2000 };
+	enum { sram_max = 0x8000 };
 	enum { spr_ram_size = 0x100 };
 	enum { nametable_max = 0x800 };
 	/* AURORA_FINAL10_STATE_V1 */
@@ -71,7 +71,8 @@ public:
 	
 	bool nes_valid, cpu_valid, joypad_valid, apu_valid, ppu_valid;
 	bool mapper_valid, ram_valid, spr_ram_valid;
-	short sram_size, nametable_size;
+	long sram_size;
+	short nametable_size;
 	long chr_size;
 	
 	// Invalidate all state

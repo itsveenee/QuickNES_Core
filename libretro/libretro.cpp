@@ -1633,7 +1633,7 @@ size_t retro_get_memory_size(unsigned id)
    {
       case RETRO_MEMORY_SAVE_RAM:
          if (emu->has_battery_ram())
-            return Nes_Emu::high_mem_size;
+            return (size_t)emu->battery_ram_size();
          break;
       case RETRO_MEMORY_SYSTEM_RAM:
          return Nes_Emu::low_mem_size;

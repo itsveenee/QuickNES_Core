@@ -152,6 +152,10 @@ public:
 
 	// True if current cartridge claims it uses battery-backed memory
 	bool has_battery_ram() const { return cart()->has_battery_ram(); }
+	long battery_ram_size() const
+	{
+		return cart() ? cart()->battery_ram_size() : 0;
+	}
 
 	// Save current battery RAM
 	const char * save_battery_ram( Auto_File_Writer );

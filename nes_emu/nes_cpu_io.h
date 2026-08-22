@@ -30,7 +30,9 @@ int Nes_Core::cpu_read( nes_addr_t addr, nes_time_t time )
 		return read_io( addr );
 	
 	if ( addr < sram_readable )
-		return impl->sram [addr & (impl_t::sram_size - 1)];
+		return impl->sram [
+			sram_bank * impl_t::sram_window_size +
+			(addr & (impl_t::sram_window_size - 1)) ];
 	
 	if ( addr < lrom_readable )
 		return *cpu::get_code( addr );
@@ -97,7 +99,9 @@ void Nes_Core::cpu_write( nes_addr_t addr, int data, nes_time_t time )
 	
 	if ( addr < sram_writable )
 	{
-		impl->sram [addr & (impl_t::sram_size - 1)] = data;
+		impl->sram [
+			sram_bank * impl_t::sram_window_size +
+			(addr & (impl_t::sram_window_size - 1)) ] = data;
 		return;
 	}
 	

@@ -122,7 +122,12 @@ void Nes_Core::save_state( Nes_State_* out ) const
 	out->sram_size = 0;
 	if ( sram_present )
 	{
-		out->sram_size = sizeof impl->sram;
+		long bytes = impl_t::sram_window_size;
+		if ( cart && cart->battery_ram_size() > bytes )
+			bytes = cart->battery_ram_size();
+		if ( bytes > impl_t::sram_size )
+			bytes = impl_t::sram_size;
+		out->sram_size = bytes;
 		memcpy( out->sram, impl->sram, out->sram_size );
 	}
 	
@@ -177,6 +182,7 @@ void Nes_Core::load_state( Nes_State_ const& in )
 	{
 		sram_present = true;
 		memcpy( impl->sram, in.sram, min( (int) in.sram_size, (int) sizeof impl->sram ) );
+		sram_bank = 0;
 		enable_sram( true ); // mapper can override (read-only, unmapped, etc.)
 	}
 	
@@ -204,14 +210,31 @@ void Nes_Core::enable_sram( bool b, bool read_only )
 		sram_readable = sram_end;
 		if ( !read_only )
 			sram_writable = sram_end;
-		cpu::map_code( 0x6000, impl->sram_size, impl->sram );
+		cpu::map_code(
+			0x6000, impl_t::sram_window_size,
+			impl->sram + sram_bank * impl_t::sram_window_size );
 	}
 	else
 	{
 		sram_readable = 0;
-		for ( int i = 0; i < impl->sram_size; i += cpu::page_size )
+		for ( int i = 0; i < impl_t::sram_window_size; i += cpu::page_size )
 			cpu::map_code( 0x6000 + i, cpu::page_size, impl->unmapped_page );
 	}
+}
+
+void Nes_Core::set_sram_bank( int bank )
+{
+	const int bank_count = impl_t::sram_size / impl_t::sram_window_size;
+	if ( bank < 0 ) bank = 0;
+	sram_bank = (unsigned) bank % (unsigned) bank_count;
+
+	/* Opcode fetches use the CPU's mapped code pages, while ordinary
+	 * data reads/writes use sram_bank in nes_cpu_io.h. Keep both views
+	 * on the same SXROM bank. */
+	if ( sram_readable )
+		cpu::map_code(
+			0x6000, impl_t::sram_window_size,
+			impl->sram + sram_bank * impl_t::sram_window_size );
 }
 
 // Unmapped memory
@@ -361,6 +384,7 @@ void Nes_Core::reset( bool full_reset, bool erase_battery_ram )
 		// SRAM
 		lrom_readable = 0;
 		sram_present = true;
+		sram_bank = 0;
 		enable_sram( false );
 		if ( !cart->has_battery_ram() || erase_battery_ram )
 			memset( impl->sram, 0xFF, impl->sram_size );

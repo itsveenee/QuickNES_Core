@@ -200,14 +200,20 @@ const char * Nes_Emu::load_ines( Auto_File_Reader in )
 const char * Nes_Emu::save_battery_ram( Auto_File_Writer out )
 {
 	RETURN_ERR( out.open() );
-	return out->write( emu.impl->sram, emu.impl->sram_size );
+	long bytes = battery_ram_size();
+	if ( bytes <= 0 ) bytes = high_mem_size;
+	if ( bytes > emu.impl->sram_size ) bytes = emu.impl->sram_size;
+	return out->write( emu.impl->sram, bytes );
 }
 
 const char * Nes_Emu::load_battery_ram( Auto_File_Reader in )
 {
 	RETURN_ERR( in.open() );
 	emu.sram_present = true;
-	return in->read( emu.impl->sram, emu.impl->sram_size );
+	long bytes = battery_ram_size();
+	if ( bytes <= 0 ) bytes = high_mem_size;
+	if ( bytes > emu.impl->sram_size ) bytes = emu.impl->sram_size;
+	return in->read( emu.impl->sram, bytes );
 }
 
 void Nes_Emu::load_state( Nes_State_ const& in )

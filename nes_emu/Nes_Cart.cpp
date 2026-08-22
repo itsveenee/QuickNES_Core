@@ -45,6 +45,7 @@ void Nes_Cart::clear()
 	
 	prg_size_ = 0;
 	chr_size_ = 0;
+	battery_ram_size_ = 0;
 	mapper = 0;
 	mapper_code_value = 0;
 	submapper = 0;
@@ -142,6 +143,33 @@ static void AuroraMirrorRom(
 		data [i] = data [i % raw_size];
 }
 
+/* AURORA_QUICKNES_DEZAEMON_SXROM_V1
+ * Old iNES cannot describe SXROM's 32 KiB PRG-RAM. Keep the
+ * compatibility exception exact (the canonical Dezaemon dump),
+ * while also honoring explicit iNES/NES2 RAM-size metadata when
+ * present. CRC is calculated once at load; zero runtime cost. */
+static uint32_t AuroraCrc32Update(
+	uint32_t crc, const void *data, long bytes )
+{
+	const uint8_t *p = (const uint8_t *) data;
+	while ( bytes-- > 0 )
+	{
+		crc ^= *p++;
+		for ( int bit = 0; bit < 8; ++bit )
+			crc = (crc >> 1) ^
+				(0xEDB88320u & (0u - (crc & 1u)));
+	}
+	return crc;
+}
+
+static long AuroraNes2RamSize( unsigned shift )
+{
+	if ( shift == 0 )
+		return 0;
+	/* NES 2.0 RAM size = 64 << shift bytes. */
+	return 64L << shift;
+}
+
 const char * Nes_Cart::load_ines( Auto_File_Reader in )
 {
 	RETURN_ERR( in.open() );
@@ -182,6 +210,27 @@ const char * Nes_Cart::load_ines( Auto_File_Reader in )
 		long prg_banks = h.prg_count ? (long) h.prg_count : 256L;
 		raw_prg_bytes = prg_banks * 16 * 1024L;
 		raw_chr_bytes = (long) h.chr_count * 8 * 1024L;
+	}
+
+	/* Determine battery-backed PRG-RAM without changing legacy carts.
+	 * Ordinary old iNES battery carts keep QuickNES' historical 8 KiB.
+	 * Mapper 1 may explicitly request 16/32 KiB when the header can say so. */
+	battery_ram_size_ = (h.flags & 0x02) ? 0x2000L : 0;
+	if ( (h.flags & 0x02) && mapper_code() == 1 )
+	{
+		if ( nes2 )
+		{
+			const unsigned nv_shift = (h.zero [2] >> 4) & 0x0F;
+			const long nv_bytes = AuroraNes2RamSize( nv_shift );
+			if ( nv_bytes == 0x2000L || nv_bytes == 0x4000L ||
+			     nv_bytes == 0x8000L )
+				battery_ram_size_ = nv_bytes;
+		}
+		else if ( !archaic_ines && h.zero [0] >= 1 && h.zero [0] <= 4 )
+		{
+			/* iNES 1.0 byte 8: count of 8 KiB PRG-RAM units. */
+			battery_ram_size_ = (long) h.zero [0] * 0x2000L;
+		}
 	}
 
 	if ( raw_prg_bytes <= 0 || raw_chr_bytes < 0 )
@@ -226,6 +275,20 @@ const char * Nes_Cart::load_ines( Auto_File_Reader in )
 	{
 		RETURN_ERR( in->read( chr(), raw_chr_bytes ) );
 		AuroraMirrorRom( chr(), raw_chr_bytes, mapped_chr_bytes );
+	}
+
+	/* Canonical unpatched Dezaemon (Japan).nes / No-Intro:
+	 * CRC32 032594CD, mapper 1, 128 KiB PRG, CHR-RAM.
+	 * Its old iNES header cannot express the SXROM 32 KiB PRG-RAM. */
+	if ( !nes2 && mapper_code() == 1 && !(h.flags & 0x04) &&
+	     raw_prg_bytes == 128 * 1024L && raw_chr_bytes == 0 )
+	{
+		uint32_t crc = 0xFFFFFFFFu;
+		crc = AuroraCrc32Update( crc, &h, sizeof h );
+		crc = AuroraCrc32Update( crc, prg(), raw_prg_bytes );
+		crc ^= 0xFFFFFFFFu;
+		if ( crc == 0x032594CDu )
+			battery_ram_size_ = 0x8000L;
 	}
 
 	return 0;

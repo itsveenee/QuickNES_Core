@@ -96,6 +96,7 @@ protected:
 	
 	// Enable 8K of RAM at 0x6000-0x7FFF, optionally read-only.
 	void enable_sram( bool enabled = true, bool read_only = false );
+	void set_sram_bank( int bank );
 	
 	int sram_read_byte( nes_addr_t addr ) const;
 	void sram_write_byte( nes_addr_t addr, uint8_t data );
@@ -244,6 +245,11 @@ inline void Nes_Mapper::intercept_writes( nes_addr_t addr, unsigned size )
 inline void Nes_Mapper::enable_sram( bool enabled, bool read_only )
 {
 	emu_->enable_sram( enabled, read_only );
+}
+
+inline void Nes_Mapper::set_sram_bank( int bank )
+{
+	emu_->set_sram_bank( bank );
 }
 
 #endif

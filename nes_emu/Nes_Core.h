@@ -37,7 +37,7 @@ public: private: friend class Nes_Emu;
 	
 	struct impl_t
 	{
-		enum { sram_size = 0x2000 };
+		enum { sram_window_size = 0x2000, sram_size = 0x8000 };
 		uint8_t sram [sram_size];
 		Nes_Apu apu;
 		
@@ -79,6 +79,7 @@ private:
 	// CPU
 	unsigned sram_readable;
 	unsigned sram_writable;
+	unsigned sram_bank;
 	unsigned lrom_readable;
 	nes_time_t clock_;
 	nes_time_t cpu_time_offset;
@@ -96,15 +97,16 @@ public: private: friend class Nes_Ppu;
 public: private: friend class Nes_Mapper;
 	void enable_prg_6000();
 	void enable_sram( bool enabled, bool read_only = false );
+	void set_sram_bank( int bank );
 	/* AURORA_FINAL10_SRAM_HELPERS_V1 */
 	int mapper_sram_read( nes_addr_t addr ) const
 	{
-		return impl->sram [addr & (impl_t::sram_size - 1)];
+		return impl->sram [addr & (impl_t::sram_window_size - 1)];
 	}
 	void mapper_sram_write( nes_addr_t addr, uint8_t data )
 	{
 		sram_present = true;
-		impl->sram [addr & (impl_t::sram_size - 1)] = data;
+		impl->sram [addr & (impl_t::sram_window_size - 1)] = data;
 	}
 	uint8_t* mapper_sram_data()
 	{

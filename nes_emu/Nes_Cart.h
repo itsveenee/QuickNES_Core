@@ -29,6 +29,7 @@ public:
 	
 	// True if cartridge claims to have battery-backed memory
 	bool has_battery_ram() const;
+	long battery_ram_size() const;
 	
 	// Size of PRG data
 	long prg_size() const { return prg_size_; }
@@ -71,6 +72,7 @@ private:
 	uint8_t *chr_;
 	long prg_size_;
 	long chr_size_;
+	long battery_ram_size_;
 	unsigned mapper;
 	unsigned mapper_code_value;
 	unsigned submapper;
@@ -78,9 +80,20 @@ private:
 };
 
 /* AURORA_FINAL10_EEPROM_BATTERY_V1 */
+inline long Nes_Cart::battery_ram_size() const
+{
+	if ( battery_ram_size_ > 0 )
+		return battery_ram_size_;
+	/* Existing Bandai EEPROM front-end compatibility: these mappers
+	 * historically exposed one 8 KiB persistence window in QuickNES. */
+	if ( mapper_code_value == 157 || mapper_code_value == 159 )
+		return 0x2000;
+	return 0;
+}
+
 inline bool Nes_Cart::has_battery_ram() const
 {
-	return (mapper & 0x02) || mapper_code_value == 157 || mapper_code_value == 159;
+	return battery_ram_size() > 0;
 }
 
 /* AURORA_NES2_HEADER_V1

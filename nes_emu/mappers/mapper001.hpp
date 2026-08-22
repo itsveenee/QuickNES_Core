@@ -37,9 +37,24 @@ public:
 		regs [3] = 0x00;
 	}
 	
+	int mmc1_sram_bank() const
+	{
+		/* SOROM/SXROM repurpose CHR-bank-0 output lines because these
+		 * boards use CHR-RAM. 8 KiB carts remain bank 0. */
+		if ( cart().chr_size() != 0 )
+			return 0;
+		const long bytes = cart().battery_ram_size();
+		if ( bytes >= 0x8000 )
+			return (regs [1] >> 2) & 3; /* SXROM: A13=bit2, A14=bit3 */
+		if ( bytes >= 0x4000 )
+			return (regs [1] >> 3) & 1; /* SOROM */
+		return 0;
+	}
+
 	virtual void apply_mapping()
 	{
 		enable_sram(); // early MMC1 always had SRAM enabled
+		set_sram_bank( mmc1_sram_bank() );
 		register_changed( 0 );
 	}
 	
@@ -85,6 +100,12 @@ public:
 				mirror_horiz();
 		}
 		
+		/* In normal 8 KiB CHR mode, CHR bank register 0 drives the
+		 * repurposed SOROM/SXROM PRG-RAM address lines. */
+		if ( reg == 1 && cart().chr_size() == 0 &&
+		     cart().battery_ram_size() > 0x2000 )
+			set_sram_bank( mmc1_sram_bank() );
+
 		// CHR
 		if ( reg < 3 && cart().chr_size() > 0 )
 		{
