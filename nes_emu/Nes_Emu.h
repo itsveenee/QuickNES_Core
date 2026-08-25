@@ -183,6 +183,18 @@ public:
 		sprites_enhanced = 64 // unlimited sprites per scanline (no flickering)
 	};
 	void set_sprite_mode( sprite_mode_t n ) { emu.ppu.sprite_limit = n; }
+	/* AURORA_V15_MULTICORE_SPRITE_LIMIT_20260824
+	 * Rendering-only limits; PPU overflow/status emulation remains in the
+	 * existing timing path and is not made to fire at these lower budgets. */
+	void set_sprite_limits( int scanline, int screen )
+	{
+		if ( scanline < 1 ) scanline = 1;
+		if ( scanline > 64 ) scanline = 64;
+		if ( screen < 1 ) screen = 1;
+		if ( screen > 64 ) screen = 64;
+		emu.ppu.sprite_limit = scanline;
+		emu.ppu.sprite_screen_limit = screen;
+	}
 
 	// Set range of host palette entries to use in graphics buffer; default uses
 	// all of them. Begin will be rounded up to next multiple of palette_alignment.

@@ -14,6 +14,8 @@ public:
 	Nes_Ppu_Rendering();
 	
 	int sprite_limit;
+	/* AURORA_V15_MULTICORE_SPRITE_LIMIT_20260824: optional whole-screen OAM-entry cap. */
+	int sprite_screen_limit;
 	
 	uint8_t* host_pixels;
 	long host_row_bytes;
@@ -50,6 +52,7 @@ private:
 inline Nes_Ppu_Rendering::Nes_Ppu_Rendering()
 {
 	sprite_limit = 8;
+	sprite_screen_limit = 64;
 	host_pixels = NULL;
 }
 

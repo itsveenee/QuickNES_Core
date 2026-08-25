@@ -292,7 +292,8 @@ void Nes_Ppu_Rendering::draw_sprites_( int begin, int end )
 			#include "Nes_Ppu_Sprites.h"
 		}
 	}
-	while ( index < 0x100 );
+	/* AURORA_V15_MULTICORE_SPRITE_LIMIT_20260824: per-screen mode keeps only the first N OAM entries. */
+	while ( index < 0x100 && index < sprite_screen_limit * 4 );
 }
 
 void Nes_Ppu_Rendering::check_sprite_hit( int begin, int end )
