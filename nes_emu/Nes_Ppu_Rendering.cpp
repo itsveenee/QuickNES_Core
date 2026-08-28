@@ -65,8 +65,7 @@ inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile_ex( int exra
 
 void Nes_Ppu_Rendering::fill_background( int count )
 {
-	ptrdiff_t const next_line = scanline_row_bytes - image_width;
-	uint32_t* pixels = (uint32_t*) scanline_pixels;
+	uint8_t* pixels = scanline_pixels;
 	
 	unsigned long fill = palette_offset;
 	if ( (vram_addr & 0x3f00) == 0x3f00 )
@@ -78,17 +77,12 @@ void Nes_Ppu_Rendering::fill_background( int count )
 		fill += color * 0x01010101;
 	}
 	
+	/* AURORA_V3_SAFE_QN_BG_MEMSET_20260828:
+	 * fill repeats one byte in all lanes, so this is byte-identical. */
 	for ( int n = count; n--; )
 	{
-		for ( int n = image_width / 16; n--; )
-		{
-			pixels [0] = fill;
-			pixels [1] = fill;
-			pixels [2] = fill;
-			pixels [3] = fill;
-			pixels += 4;
-		}
-		pixels = (uint32_t*) ((uint8_t*) pixels + next_line);
+		memset( pixels, (int)(fill & 0xFF), image_width );
+		pixels += scanline_row_bytes;
 	}
 }
 
