@@ -278,6 +278,30 @@ extern "C" void quicknes_snesticle_set_duty_swap(int enable)
 {
     s_snesticle_duty_swap = enable ? true : false;
 }
+
+/* AURORA_FAMICOM_MIC_CFG41_20260828
+ * The original Famicom controller II microphone is an immediate one-bit
+ * signal on $4016 D2. A held host button alternates the level on successive
+ * $4016 reads, matching the conventional emulator approximation used by
+ * games that detect microphone transitions rather than a fixed polarity. */
+static bool s_snesticle_microphone = false;
+static bool s_snesticle_microphone_phase = false;
+
+extern "C" void quicknes_snesticle_set_microphone(int enable)
+{
+    const bool next = enable ? true : false;
+    if (next != s_snesticle_microphone)
+        s_snesticle_microphone_phase = false;
+    s_snesticle_microphone = next;
+}
+
+static int quicknes_snesticle_microphone_bit(int addr)
+{
+    if (addr != 0x4016 || !s_snesticle_microphone)
+        return 0;
+    s_snesticle_microphone_phase = !s_snesticle_microphone_phase;
+    return s_snesticle_microphone_phase ? 0x04 : 0;
+}
 /* SNESTICLE_DUTY_SWAP_END */
 
 void Nes_Core::write_io( nes_addr_t addr, int data )
@@ -342,13 +366,15 @@ int Nes_Core::read_io( nes_addr_t addr )
 	 */
 	if ( (addr & 0xFFFE) == 0x4016 )
 	{
+		const int mic = quicknes_snesticle_microphone_bit(addr);
+
 		if ( joypad.w4016 & 1 )
-			return current_joypad [addr & 1] & 1;
+			return (current_joypad [addr & 1] & 1) | mic;
 
 		unsigned long result = joypad.joypad_latches [addr & 1];
 		joypad.joypad_latches [addr & 1] =
 			(result >> 1) | 0x80000000;
-		return result & 1;
+		return (result & 1) | mic;
 	}
 	
 	if ( addr == Nes_Apu::status_addr )
