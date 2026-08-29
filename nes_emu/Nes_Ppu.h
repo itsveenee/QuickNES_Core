@@ -33,6 +33,11 @@ public:
 	void render_bg_until( nes_time_t );
 	void render_until( nes_time_t );
 	
+	/* AURORA_QN_LIGHTGUN_BEAM_V7_20260829
+	 * Returns true only when the emulated CRT beam has already passed a
+	 * sufficiently bright pixel around (x,y), with short photodiode persistence. */
+	bool lightgun_light_found( nes_time_t, int x, int y );
+	
 	// CPU time that frame will have ended by
 	int frame_length() const { return frame_length_; }
 	

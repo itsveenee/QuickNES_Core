@@ -140,6 +140,128 @@ void Nes_Ppu::render_until_( nes_time_t time )
 	}
 }
 
+/* AURORA_QN_LIGHTGUN_BEAM_V7_20260829
+ * Keep the sensor in the PPU timeline. QuickNES renders scanlines lazily, so
+ * first bring graphics up to the exact CPU read time. The final host cursor
+ * is drawn later by Aurora/GS and never appears in host_pixels.
+ *
+ * Visible line 0 begins at 21*341 + 60 PPU clocks.
+ * The 20-line persistence window follows the modern Mesen Zapper model; the
+ * 9x9 sample radius matches FCEUmm's long-standing detector.
+ */
+extern "C" int quicknes_snesticle_lightgun_color_bright(unsigned color);
+
+bool Nes_Ppu::lightgun_light_found( nes_time_t cpu_time, int target_x, int target_y )
+{
+	if ( !host_pixels || !host_palette ||
+	     target_x < 0 || target_x >= image_width ||
+	     target_y < 0 || target_y >= image_height )
+		return false;
+
+	/* AURORA_QN_LIGHTGUN_OPTICAL_V7_3_20260829
+	 * Zapper reads happen inside the emulated frame, while QuickNES normally
+	 * captures a new host-palette bank only when a visible BG/OBJ layer needs
+	 * it. Duck Hunt deliberately uploads the dark test palette and then clears
+	 * PPUMASK BG/OBJ bits. In that state normal video has no reason to snapshot
+	 * the palette, but the optical sensor DOES: otherwise freshly-filled dark
+	 * pixels can still be decoded through the previous bright palette bank.
+	 *
+	 * Snapshot the current PPU palette before bringing the raster to the exact
+	 * $4016/$4017 read time. This is lightgun-only and uses QuickNES's existing
+	 * per-frame 64-entry palette-bank mechanism; save-state/SRAM are untouched. */
+	if ( palette_changed &&
+	     palette_size + palette_increment <= max_palette_size )
+	{
+		palette_changed = false;
+		capture_palette();
+	}
+
+	render_until( cpu_time );
+
+	ppu_time_t beam_time = ppu_time( cpu_time );
+	int beam_y = (int)(beam_time / scanline_len) - 21;
+	int beam_x = (int)(beam_time % scanline_len) - 60;
+
+	if ( beam_x < 0 )
+	{
+		beam_x += scanline_len;
+		--beam_y;
+	}
+
+	/* With both BG and sprites disabled, do not consult host_pixels at all.
+	 * They are a rendering cache and can contain lines encoded with an older
+	 * palette bank. The physical PPU output here is the current backdrop color.
+	 * Evaluate that color directly, while keeping the same beam/radius/20-line
+	 * persistence model. This also preserves games that intentionally choose a
+	 * bright backdrop while rendering is disabled instead of hard-coding black. */
+	if ( !(w2001 & 0x18) )
+	{
+		int pal_index = 0;
+		if ( (vram_addr & 0x3f00) == 0x3f00 )
+		{
+			pal_index = vram_addr & 0x1f;
+			if ( !(pal_index & 3) )
+				pal_index &= 0x0f;
+		}
+
+		const int mono = (w2001 & 1) ? 0x30 : 0x3f;
+		const int emph = (w2001 << 1) & 0x1c0;
+		const unsigned color = (unsigned)(palette[pal_index] & mono) |
+			(unsigned)emph;
+
+		if ( !quicknes_snesticle_lightgun_color_bright(color) )
+			return false;
+
+		for ( int yo = -4; yo <= 4; ++yo )
+		{
+			const int y = target_y + yo;
+			if ( (unsigned)y >= (unsigned)image_height )
+				continue;
+			if ( beam_y < y || beam_y - y > 20 )
+				continue;
+
+			int left = target_x - 4;
+			if ( left < 0 ) left = 0;
+			if ( beam_y > y || beam_x > left )
+				return true;
+		}
+		return false;
+	}
+
+	for ( int yo = -4; yo <= 4; ++yo )
+	{
+		int y = target_y + yo;
+		if ( (unsigned)y >= (unsigned)image_height )
+			continue;
+		if ( beam_y < y || beam_y - y > 20 )
+			continue;
+
+		for ( int xo = -4; xo <= 4; ++xo )
+		{
+			int x = target_x + xo;
+			if ( (unsigned)x >= (unsigned)image_width )
+				continue;
+			if ( beam_y == y && beam_x <= x )
+				continue;
+
+			unsigned host_index =
+				host_pixels[y * host_row_bytes + image_left + x];
+			if ( host_index < (unsigned)palette_begin )
+				continue;
+
+			unsigned palette_index = host_index - (unsigned)palette_begin;
+			if ( palette_index >= (unsigned)max_palette_size )
+				continue;
+
+			unsigned color =
+				(unsigned)(unsigned short)host_palette[palette_index];
+			if ( quicknes_snesticle_lightgun_color_bright(color) )
+				return true;
+		}
+	}
+	return false;
+}
+
 // Frame events
 
 inline void Nes_Ppu::end_vblank()

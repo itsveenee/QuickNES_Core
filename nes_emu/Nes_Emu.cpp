@@ -416,6 +416,17 @@ long Nes_Emu::read_samples( short* out, long out_size )
 	return count;
 }
 
+/* AURORA_QN_LIGHTGUN_BEAM_V7_20260829
+ * FCEUmm considers a pixel visible at RGB sum >= 300.
+ * Use QuickNES's canonical 512-color/emphasis table for the same threshold.
+ */
+extern "C" int quicknes_snesticle_lightgun_color_bright(unsigned color)
+{
+	Nes_Emu::rgb_t const& rgb =
+		Nes_Emu::nes_colors[color & (Nes_Emu::color_table_size - 1)];
+	return ((int)rgb.red + (int)rgb.green + (int)rgb.blue) >= 300;
+}
+
 Nes_Emu::rgb_t const Nes_Emu::nes_colors [color_table_size] =
 {
 	// generated with nes_ntsc default settings

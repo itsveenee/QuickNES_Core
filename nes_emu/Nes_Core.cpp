@@ -322,7 +322,8 @@ static int quicknes_snesticle_microphone_bit(int addr)
 enum
 {
     QN_TURBOFILE_BYTES = 0x2000,
-    QN_TURBOFILE_BITS  = QN_TURBOFILE_BYTES * 8
+    QN_TURBOFILE_BITS  = QN_TURBOFILE_BYTES * 8,
+    QN_BATTLEBOX_BYTES = 0x0200
 };
 
 static unsigned char s_snesticle_turbofile[QN_TURBOFILE_BYTES];
@@ -332,11 +333,61 @@ static bool s_snesticle_turbofile_protocol_armed = false;
 static unsigned int s_snesticle_turbofile_position = 0;
 static unsigned char s_snesticle_turbofile_last_write = 0;
 
+/* AURORA_QN_BATTLEBOX_V5_20260829
+ * IGS Battle Box: 2 x 128 16-bit words = 512 battery-backed bytes.
+ * Bytes are kept explicitly little-endian so the external save matches
+ * Mesen's raw Battle Box battery layout on little-endian hosts. */
+static unsigned char s_snesticle_battlebox[QN_BATTLEBOX_BYTES];
+static bool s_snesticle_battlebox_initialized = false;
+static bool s_snesticle_battlebox_dirty = false;
+static unsigned char s_snesticle_battlebox_last_write = 0;
+static unsigned char s_snesticle_battlebox_address = 0;
+static unsigned char s_snesticle_battlebox_chip_select = 0;
+static unsigned char s_snesticle_battlebox_output = 0;
+static bool s_snesticle_battlebox_write_enabled = false;
+static unsigned char s_snesticle_battlebox_input_bit = 0;
+static unsigned short s_snesticle_battlebox_input_data = 0;
+static bool s_snesticle_battlebox_is_write = false;
+static bool s_snesticle_battlebox_is_read = false;
+
 /* AURORA_CD_AUDIO_STREAM_V3_NES_EXT_GATE_20260829
  * Normal NES games have no expansion device attached. Keep one hot boolean
  * so $4016/$4017 avoid entering Turbo File/Vaus code entirely. */
 static bool s_snesticle_turbofile_enabled = false;
 static bool s_snesticle_arkanoid_enabled = false;
+static bool s_snesticle_battlebox_enabled = false;
+
+/* AURORA_QN_LIGHTGUN_V7_20260829
+ * 0 none; 1 NES Zapper on controller port 2; 2 Famicom Light Gun on EXT;
+ * 3 two NES Zappers. Famicom EXT keeps built-in controller II alive. */
+enum
+{
+    QN_LIGHTGUN_NONE = 0,
+    QN_LIGHTGUN_NES_PORT2 = 1,
+    QN_LIGHTGUN_FAMICOM_EXT = 2,
+    QN_LIGHTGUN_TWO_NES = 3
+};
+static int s_snesticle_lightgun_mode = QN_LIGHTGUN_NONE;
+static int s_snesticle_lightgun_x = 128;
+static int s_snesticle_lightgun_y = 120;
+
+/* AURORA_QN_LIGHTGUN_TIMING_V7_2_20260829
+ * Virtual OEM trigger travel: software first sees D4 high, then the final
+ * trigger click releases D4 low. Duck Hunt accepts a trigger state only after
+ * two consecutive observations, so expose two complete emulated frames high
+ * before the falling edge. Off-screen darkness is kept briefly after the host
+ * combo is released because several games flash the entire screen white to
+ * distinguish on-screen aim from a shot pointed away from the CRT. */
+enum
+{
+    QN_LIGHTGUN_TRIGGER_HIGH_FRAMES = 2,
+    QN_LIGHTGUN_OFFSCREEN_DARK_FRAMES = 8
+};
+static bool s_snesticle_lightgun_host_trigger_prev = false;
+static unsigned int s_snesticle_lightgun_trigger_high_frames = 0;
+static bool s_snesticle_lightgun_trigger_level = false;
+static unsigned int s_snesticle_lightgun_offscreen_dark_frames = 0;
+
 static bool s_snesticle_ext_active = false;
 static bool s_snesticle_arkanoid_strobe = false;
 static bool s_snesticle_arkanoid_fire = false;
@@ -369,12 +420,102 @@ extern "C" void quicknes_snesticle_ext_turbofile_clear_dirty(void)
     s_snesticle_turbofile_dirty = false;
 }
 
+/* AURORA_QN_BATTLEBOX_V5_20260829 */
+static void quicknes_snesticle_battlebox_init(void)
+{
+    if (!s_snesticle_battlebox_initialized)
+    {
+        memset(s_snesticle_battlebox, 0xFF,
+               sizeof(s_snesticle_battlebox));
+        s_snesticle_battlebox_initialized = true;
+    }
+}
+
+static unsigned short quicknes_snesticle_battlebox_read_word(
+      unsigned int index)
+{
+    const unsigned int byte_index = (index & 0xFFU) << 1;
+    return (unsigned short)(
+        (unsigned short)s_snesticle_battlebox[byte_index] |
+        ((unsigned short)s_snesticle_battlebox[byte_index + 1] << 8));
+}
+
+static void quicknes_snesticle_battlebox_write_word(
+      unsigned int index, unsigned short value)
+{
+    const unsigned int byte_index = (index & 0xFFU) << 1;
+    const unsigned char lo = (unsigned char)(value & 0xFFU);
+    const unsigned char hi = (unsigned char)(value >> 8);
+
+    if (s_snesticle_battlebox[byte_index] != lo ||
+        s_snesticle_battlebox[byte_index + 1] != hi)
+    {
+        s_snesticle_battlebox[byte_index] = lo;
+        s_snesticle_battlebox[byte_index + 1] = hi;
+        s_snesticle_battlebox_dirty = true;
+    }
+}
+
+static void quicknes_snesticle_battlebox_erase(void)
+{
+    unsigned int i;
+    bool changed = false;
+
+    quicknes_snesticle_battlebox_init();
+    for (i = 0; i < QN_BATTLEBOX_BYTES; ++i)
+    {
+        if (s_snesticle_battlebox[i] != 0)
+        {
+            changed = true;
+            break;
+        }
+    }
+
+    if (changed)
+    {
+        memset(s_snesticle_battlebox, 0, QN_BATTLEBOX_BYTES);
+        s_snesticle_battlebox_dirty = true;
+    }
+}
+
+static void quicknes_snesticle_battlebox_reset_bus(void)
+{
+    s_snesticle_battlebox_last_write = 0;
+    s_snesticle_battlebox_address = 0;
+    s_snesticle_battlebox_chip_select = 0;
+    s_snesticle_battlebox_output = 0;
+    s_snesticle_battlebox_write_enabled = false;
+    s_snesticle_battlebox_input_bit = 0;
+    s_snesticle_battlebox_input_data = 0;
+    s_snesticle_battlebox_is_write = false;
+    s_snesticle_battlebox_is_read = false;
+}
+
+extern "C" unsigned char *quicknes_snesticle_ext_battlebox_data(void)
+{
+    quicknes_snesticle_battlebox_init();
+    return s_snesticle_battlebox;
+}
+
+extern "C" int quicknes_snesticle_ext_battlebox_dirty(void)
+{
+    return s_snesticle_battlebox_dirty ? 1 : 0;
+}
+
+extern "C" void quicknes_snesticle_ext_battlebox_clear_dirty(void)
+{
+    s_snesticle_battlebox_dirty = false;
+}
+
 /* AURORA_CD_AUDIO_STREAM_V3_NES_TF_ENABLE_20260829 */
 extern "C" void quicknes_snesticle_ext_set_turbofile(int enable)
 {
     s_snesticle_turbofile_enabled = enable ? true : false;
     s_snesticle_ext_active =
-        s_snesticle_turbofile_enabled || s_snesticle_arkanoid_enabled;
+        s_snesticle_turbofile_enabled ||
+        s_snesticle_arkanoid_enabled ||
+        s_snesticle_battlebox_enabled ||
+        s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE;
 
     s_snesticle_turbofile_position = 0;
     s_snesticle_turbofile_last_write = 0;
@@ -385,13 +526,111 @@ extern "C" void quicknes_snesticle_ext_set_arkanoid(int enable)
 {
     s_snesticle_arkanoid_enabled = enable ? true : false;
     s_snesticle_ext_active =
-        s_snesticle_turbofile_enabled || s_snesticle_arkanoid_enabled;
+        s_snesticle_turbofile_enabled ||
+        s_snesticle_arkanoid_enabled ||
+        s_snesticle_battlebox_enabled ||
+        s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE;
 
     s_snesticle_arkanoid_strobe = false;
     s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
     s_snesticle_turbofile_position = 0;
     s_snesticle_turbofile_last_write = 0;
     s_snesticle_turbofile_protocol_armed = false;
+}
+
+extern "C" void quicknes_snesticle_ext_set_battlebox(int enable)
+{
+    s_snesticle_battlebox_enabled = enable ? true : false;
+    s_snesticle_ext_active =
+        s_snesticle_turbofile_enabled ||
+        s_snesticle_arkanoid_enabled ||
+        s_snesticle_battlebox_enabled ||
+        s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE;
+
+    if (s_snesticle_battlebox_enabled)
+        quicknes_snesticle_battlebox_init();
+    quicknes_snesticle_battlebox_reset_bus();
+}
+
+extern "C" void quicknes_snesticle_ext_set_lightgun(int mode)
+{
+    if (mode < QN_LIGHTGUN_NONE || mode > QN_LIGHTGUN_TWO_NES)
+        mode = QN_LIGHTGUN_NONE;
+
+    if (mode != s_snesticle_lightgun_mode)
+    {
+        s_snesticle_lightgun_trigger_high_frames = 0;
+        s_snesticle_lightgun_trigger_level = false;
+        s_snesticle_lightgun_host_trigger_prev = false;
+        s_snesticle_lightgun_offscreen_dark_frames = 0;
+    }
+    s_snesticle_lightgun_mode = mode;
+
+    s_snesticle_ext_active =
+        s_snesticle_turbofile_enabled ||
+        s_snesticle_arkanoid_enabled ||
+        s_snesticle_battlebox_enabled ||
+        s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE;
+}
+
+extern "C" void quicknes_snesticle_ext_set_lightgun_state(
+    int x, int y, int trigger, int offscreen)
+{
+    const bool down = trigger ? true : false;
+    const bool away = offscreen ? true : false;
+
+    if (x < 0) x = 0;
+    if (x > 255) x = 255;
+    if (y < 0) y = 0;
+    if (y > 239) y = 239;
+
+    /* Start one mechanical trigger cycle only on the host press edge. A tap
+     * shorter than two frames still completes the high->low transition. */
+    if (down && !s_snesticle_lightgun_host_trigger_prev &&
+        !s_snesticle_lightgun_trigger_high_frames)
+        s_snesticle_lightgun_trigger_high_frames =
+            QN_LIGHTGUN_TRIGGER_HIGH_FRAMES;
+
+    if (s_snesticle_lightgun_trigger_high_frames)
+    {
+        s_snesticle_lightgun_trigger_level = true;
+        --s_snesticle_lightgun_trigger_high_frames;
+    }
+    else
+    {
+        s_snesticle_lightgun_trigger_level = false;
+    }
+    s_snesticle_lightgun_host_trigger_prev = down;
+
+    /* Off-screen is optical state, not coordinates. Keep it latched for a
+     * handful of frames after release so full-white reload/test flashes are
+     * guaranteed to remain dark to D3. Holding the combo continuously rearms
+     * this window. */
+    if (away)
+        s_snesticle_lightgun_offscreen_dark_frames =
+            QN_LIGHTGUN_OFFSCREEN_DARK_FRAMES;
+    else if (s_snesticle_lightgun_offscreen_dark_frames)
+        --s_snesticle_lightgun_offscreen_dark_frames;
+
+    s_snesticle_lightgun_x = x;
+    s_snesticle_lightgun_y = y;
+}
+
+static bool quicknes_snesticle_lightgun_addr(int addr)
+{
+    if (s_snesticle_lightgun_mode == QN_LIGHTGUN_TWO_NES)
+        return addr == 0x4016 || addr == 0x4017;
+
+    return s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE &&
+           addr == 0x4017;
+}
+
+static int quicknes_snesticle_lightgun_bits(bool light_found)
+{
+    int ret = light_found ? 0 : 0x08; /* D3 active-low light sense. */
+    if (s_snesticle_lightgun_trigger_level)
+        ret |= 0x10;                  /* D4 mechanical half-pull level. */
+    return ret;
 }
 
 extern "C" void quicknes_snesticle_ext_set_arkanoid_state(
@@ -410,6 +649,113 @@ extern "C" void quicknes_snesticle_ext_reset_bus(void)
     s_snesticle_turbofile_position = 0;
     s_snesticle_turbofile_last_write = 0;
     s_snesticle_turbofile_protocol_armed = false;
+    quicknes_snesticle_battlebox_reset_bus();
+    /* Cursor is host state. Cancel transient gun timing, but deliberately keep
+     * host_trigger_prev: loading/resetting while Cross is already held must
+     * not manufacture a fresh trigger edge. */
+    s_snesticle_lightgun_trigger_high_frames = 0;
+    s_snesticle_lightgun_trigger_level = false;
+    s_snesticle_lightgun_offscreen_dark_frames = 0;
+}
+
+static void quicknes_snesticle_battlebox_write(int data)
+{
+    if ((data & 0x01) && !(s_snesticle_battlebox_last_write & 0x01))
+    {
+        s_snesticle_battlebox_input_data &=
+            (unsigned short)~(1U << s_snesticle_battlebox_input_bit);
+        s_snesticle_battlebox_input_data |=
+            (unsigned short)(
+                (unsigned short)s_snesticle_battlebox_output <<
+                s_snesticle_battlebox_input_bit);
+        ++s_snesticle_battlebox_input_bit;
+
+        if (s_snesticle_battlebox_input_bit > 15)
+        {
+            if (s_snesticle_battlebox_is_write)
+            {
+                const unsigned int index =
+                    (s_snesticle_battlebox_chip_select ? 0x80U : 0U) |
+                    s_snesticle_battlebox_address;
+                quicknes_snesticle_battlebox_write_word(
+                    index, s_snesticle_battlebox_input_data);
+                s_snesticle_battlebox_is_write = false;
+            }
+            else
+            {
+                const unsigned char address =
+                    (unsigned char)(s_snesticle_battlebox_input_data & 0x7FU);
+                const unsigned char cmd =
+                    (unsigned char)(
+                        ((s_snesticle_battlebox_input_data & 0x7F00U) >> 8)
+                        ^ 0x7FU);
+
+                s_snesticle_battlebox_is_read = false;
+
+                switch (cmd)
+                {
+                    case 0x01:
+                        s_snesticle_battlebox_address = address;
+                        s_snesticle_battlebox_is_read = true;
+                        break;
+                    case 0x06:
+                        if (s_snesticle_battlebox_write_enabled)
+                        {
+                            s_snesticle_battlebox_address = address;
+                            s_snesticle_battlebox_is_write = true;
+                        }
+                        break;
+                    case 0x0C:
+                        if (s_snesticle_battlebox_write_enabled)
+                            quicknes_snesticle_battlebox_erase();
+                        break;
+                    case 0x0D:
+                        break;
+                    case 0x09:
+                        s_snesticle_battlebox_write_enabled = true;
+                        break;
+                    case 0x0B:
+                        s_snesticle_battlebox_write_enabled = false;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            s_snesticle_battlebox_input_bit = 0;
+        }
+    }
+
+    s_snesticle_battlebox_last_write = (unsigned char)data;
+}
+
+static int quicknes_snesticle_battlebox_read(void)
+{
+    unsigned int read_bit = 0;
+    unsigned int index;
+
+    quicknes_snesticle_battlebox_init();
+
+    if (s_snesticle_battlebox_last_write & 0x01)
+    {
+        s_snesticle_battlebox_chip_select ^= 0x01;
+        s_snesticle_battlebox_input_data = 0;
+        s_snesticle_battlebox_input_bit = 0;
+    }
+
+    s_snesticle_battlebox_output ^= 0x01;
+
+    if (s_snesticle_battlebox_is_read)
+    {
+        index =
+            (s_snesticle_battlebox_chip_select ? 0x80U : 0U) |
+            s_snesticle_battlebox_address;
+        read_bit =
+            (quicknes_snesticle_battlebox_read_word(index) >>
+             s_snesticle_battlebox_input_bit) & 0x01U;
+    }
+
+    return (int)((read_bit << 3) |
+                 ((unsigned int)s_snesticle_battlebox_output << 4));
 }
 
 static void quicknes_snesticle_ext_write(int data)
@@ -420,6 +766,12 @@ static void quicknes_snesticle_ext_write(int data)
         if (s_snesticle_arkanoid_strobe && !next_strobe)
             s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
         s_snesticle_arkanoid_strobe = next_strobe;
+        return;
+    }
+
+    if (s_snesticle_battlebox_enabled)
+    {
+        quicknes_snesticle_battlebox_write(data);
         return;
     }
 
@@ -484,6 +836,9 @@ static int quicknes_snesticle_ext_read(int addr)
         }
         return 0;
     }
+
+    if (s_snesticle_battlebox_enabled && addr == 0x4017)
+        return quicknes_snesticle_battlebox_read();
 
     /* AURORA_CD_AUDIO_STREAM_V3_NES_TF_READ_GUARD_20260829 */
     if (s_snesticle_turbofile_enabled && addr == 0x4017)
@@ -567,8 +922,21 @@ int Nes_Core::read_io( nes_addr_t addr )
 	{
 		const int mic = quicknes_snesticle_microphone_bit(addr);
 		/* AURORA_CD_AUDIO_STREAM_V3_NES_HOT_READ_20260829 */
-		const int ext = s_snesticle_ext_active
-			? quicknes_snesticle_ext_read(addr) : 0;
+		int ext = 0;
+		if (s_snesticle_lightgun_mode != QN_LIGHTGUN_NONE &&
+			quicknes_snesticle_lightgun_addr(addr))
+		{
+			/* D3 is sampled at this exact CPU read. For an off-screen shot,
+			 * deliberately do not query the CRT beam: pointed away must remain
+			 * dark even if the game flashes a full-white test frame. */
+			const bool light = s_snesticle_lightgun_offscreen_dark_frames
+				? false
+				: ppu.lightgun_light_found(
+					clock(), s_snesticle_lightgun_x, s_snesticle_lightgun_y);
+			ext = quicknes_snesticle_lightgun_bits(light);
+		}
+		else if (s_snesticle_ext_active)
+			ext = quicknes_snesticle_ext_read(addr);
 
 		if ( joypad.w4016 & 1 )
 			return (current_joypad [addr & 1] & 1) | mic | ext;
