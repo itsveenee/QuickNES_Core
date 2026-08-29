@@ -332,7 +332,12 @@ static bool s_snesticle_turbofile_protocol_armed = false;
 static unsigned int s_snesticle_turbofile_position = 0;
 static unsigned char s_snesticle_turbofile_last_write = 0;
 
+/* AURORA_CD_AUDIO_STREAM_V3_NES_EXT_GATE_20260829
+ * Normal NES games have no expansion device attached. Keep one hot boolean
+ * so $4016/$4017 avoid entering Turbo File/Vaus code entirely. */
+static bool s_snesticle_turbofile_enabled = false;
 static bool s_snesticle_arkanoid_enabled = false;
+static bool s_snesticle_ext_active = false;
 static bool s_snesticle_arkanoid_strobe = false;
 static bool s_snesticle_arkanoid_fire = false;
 static unsigned int s_snesticle_arkanoid_value = 0xA4;
@@ -364,9 +369,24 @@ extern "C" void quicknes_snesticle_ext_turbofile_clear_dirty(void)
     s_snesticle_turbofile_dirty = false;
 }
 
+/* AURORA_CD_AUDIO_STREAM_V3_NES_TF_ENABLE_20260829 */
+extern "C" void quicknes_snesticle_ext_set_turbofile(int enable)
+{
+    s_snesticle_turbofile_enabled = enable ? true : false;
+    s_snesticle_ext_active =
+        s_snesticle_turbofile_enabled || s_snesticle_arkanoid_enabled;
+
+    s_snesticle_turbofile_position = 0;
+    s_snesticle_turbofile_last_write = 0;
+    s_snesticle_turbofile_protocol_armed = false;
+}
+
 extern "C" void quicknes_snesticle_ext_set_arkanoid(int enable)
 {
     s_snesticle_arkanoid_enabled = enable ? true : false;
+    s_snesticle_ext_active =
+        s_snesticle_turbofile_enabled || s_snesticle_arkanoid_enabled;
+
     s_snesticle_arkanoid_strobe = false;
     s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
     s_snesticle_turbofile_position = 0;
@@ -402,6 +422,10 @@ static void quicknes_snesticle_ext_write(int data)
         s_snesticle_arkanoid_strobe = next_strobe;
         return;
     }
+
+    /* AURORA_CD_AUDIO_STREAM_V3_NES_TF_WRITE_GUARD_20260829 */
+    if (!s_snesticle_turbofile_enabled)
+        return;
 
     quicknes_snesticle_turbofile_init();
 
@@ -461,7 +485,8 @@ static int quicknes_snesticle_ext_read(int addr)
         return 0;
     }
 
-    if (addr == 0x4017)
+    /* AURORA_CD_AUDIO_STREAM_V3_NES_TF_READ_GUARD_20260829 */
+    if (s_snesticle_turbofile_enabled && addr == 0x4017)
     {
         quicknes_snesticle_turbofile_init();
         return (int)(((s_snesticle_turbofile[
@@ -486,8 +511,10 @@ void Nes_Core::write_io( nes_addr_t addr, int data )
 	// joypad strobe
 	if ( addr == 0x4016 )
 	{
-		/* AURORA_QN_EXT_TURBOFILE_VAUS_V2_20260828 */
-		quicknes_snesticle_ext_write(data);
+		/* AURORA_CD_AUDIO_STREAM_V3_NES_HOT_WRITE_20260829:
+		 * ordinary games pay one predictable false branch only. */
+		if (s_snesticle_ext_active)
+			quicknes_snesticle_ext_write(data);
 
 		// if strobe goes low, latch data
 		if ( joypad.w4016 & 1 & ~data )
@@ -539,7 +566,9 @@ int Nes_Core::read_io( nes_addr_t addr )
 	if ( (addr & 0xFFFE) == 0x4016 )
 	{
 		const int mic = quicknes_snesticle_microphone_bit(addr);
-		const int ext = quicknes_snesticle_ext_read(addr);
+		/* AURORA_CD_AUDIO_STREAM_V3_NES_HOT_READ_20260829 */
+		const int ext = s_snesticle_ext_active
+			? quicknes_snesticle_ext_read(addr) : 0;
 
 		if ( joypad.w4016 & 1 )
 			return (current_joypad [addr & 1] & 1) | mic | ext;
