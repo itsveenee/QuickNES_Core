@@ -304,6 +304,175 @@ static int quicknes_snesticle_microphone_bit(int addr)
 }
 /* SNESTICLE_DUTY_SWAP_END */
 
+/* AURORA_QN_EXT_TURBOFILE_VAUS_V2_20260828
+ * Famicom expansion-port devices for Aurora's native QuickNES path.
+ *
+ * Default EXT device: ASCII Turbo File, 8 KiB battery-backed SRAM.
+ * Arkanoid (Japan) is the sole automatic exception and replaces it with
+ * the Famicom Vaus controller. Normal pad bits remain on D0; expansion
+ * signals are ORed onto the authentic extra data bits.
+ *
+ * Turbo File protocol follows the documented/Mesen model:
+ *   $4016 D1 low -> position reset
+ *   $4016 D2 falling edge -> write D0, then advance one bit
+ *   $4017 D2 -> current SRAM bit
+ * Merely polling controllers never raises D2, so it never marks the file
+ * dirty and therefore does not create a save file.
+ */
+enum
+{
+    QN_TURBOFILE_BYTES = 0x2000,
+    QN_TURBOFILE_BITS  = QN_TURBOFILE_BYTES * 8
+};
+
+static unsigned char s_snesticle_turbofile[QN_TURBOFILE_BYTES];
+static bool s_snesticle_turbofile_initialized = false;
+static bool s_snesticle_turbofile_dirty = false;
+static bool s_snesticle_turbofile_protocol_armed = false;
+static unsigned int s_snesticle_turbofile_position = 0;
+static unsigned char s_snesticle_turbofile_last_write = 0;
+
+static bool s_snesticle_arkanoid_enabled = false;
+static bool s_snesticle_arkanoid_strobe = false;
+static bool s_snesticle_arkanoid_fire = false;
+static unsigned int s_snesticle_arkanoid_value = 0xA4;
+static unsigned int s_snesticle_arkanoid_shift = 0xA4;
+
+static void quicknes_snesticle_turbofile_init(void)
+{
+    if (!s_snesticle_turbofile_initialized)
+    {
+        memset(s_snesticle_turbofile, 0xFF,
+               sizeof(s_snesticle_turbofile));
+        s_snesticle_turbofile_initialized = true;
+    }
+}
+
+extern "C" unsigned char *quicknes_snesticle_ext_turbofile_data(void)
+{
+    quicknes_snesticle_turbofile_init();
+    return s_snesticle_turbofile;
+}
+
+extern "C" int quicknes_snesticle_ext_turbofile_dirty(void)
+{
+    return s_snesticle_turbofile_dirty ? 1 : 0;
+}
+
+extern "C" void quicknes_snesticle_ext_turbofile_clear_dirty(void)
+{
+    s_snesticle_turbofile_dirty = false;
+}
+
+extern "C" void quicknes_snesticle_ext_set_arkanoid(int enable)
+{
+    s_snesticle_arkanoid_enabled = enable ? true : false;
+    s_snesticle_arkanoid_strobe = false;
+    s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
+    s_snesticle_turbofile_position = 0;
+    s_snesticle_turbofile_last_write = 0;
+    s_snesticle_turbofile_protocol_armed = false;
+}
+
+extern "C" void quicknes_snesticle_ext_set_arkanoid_state(
+    unsigned int paddle, int fire)
+{
+    if (paddle < 0x54U) paddle = 0x54U;
+    if (paddle > 0xF4U) paddle = 0xF4U;
+    s_snesticle_arkanoid_value = paddle;
+    s_snesticle_arkanoid_fire = fire ? true : false;
+}
+
+extern "C" void quicknes_snesticle_ext_reset_bus(void)
+{
+    s_snesticle_arkanoid_strobe = false;
+    s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
+    s_snesticle_turbofile_position = 0;
+    s_snesticle_turbofile_last_write = 0;
+    s_snesticle_turbofile_protocol_armed = false;
+}
+
+static void quicknes_snesticle_ext_write(int data)
+{
+    if (s_snesticle_arkanoid_enabled)
+    {
+        const bool next_strobe = (data & 0x01) != 0;
+        if (s_snesticle_arkanoid_strobe && !next_strobe)
+            s_snesticle_arkanoid_shift = s_snesticle_arkanoid_value;
+        s_snesticle_arkanoid_strobe = next_strobe;
+        return;
+    }
+
+    quicknes_snesticle_turbofile_init();
+
+    if (!(data & 0x02))
+    {
+        s_snesticle_turbofile_position = 0;
+        s_snesticle_turbofile_protocol_armed = false;
+    }
+    else if (!(s_snesticle_turbofile_last_write & 0x02))
+    {
+        /* The documented reset sequence ends 00 -> 02. Requiring that
+         * release before persistence avoids treating ordinary joypad strobes
+         * (01 -> 00) as Turbo File use merely because the device is always
+         * attached in Aurora. */
+        s_snesticle_turbofile_protocol_armed = true;
+    }
+
+    if (s_snesticle_turbofile_protocol_armed &&
+        (data & 0x02) &&
+        !(data & 0x04) &&
+        (s_snesticle_turbofile_last_write & 0x04))
+    {
+        const unsigned int byte_index =
+            s_snesticle_turbofile_position >> 3;
+        const unsigned int bit_mask =
+            1U << (s_snesticle_turbofile_position & 7U);
+
+        if (data & 0x01)
+            s_snesticle_turbofile[byte_index] |= (unsigned char)bit_mask;
+        else
+            s_snesticle_turbofile[byte_index] &=
+                (unsigned char)~bit_mask;
+
+        s_snesticle_turbofile_position =
+            (s_snesticle_turbofile_position + 1U) &
+            (QN_TURBOFILE_BITS - 1U);
+        s_snesticle_turbofile_dirty = true;
+    }
+
+    s_snesticle_turbofile_last_write = (unsigned char)data;
+}
+
+static int quicknes_snesticle_ext_read(int addr)
+{
+    if (s_snesticle_arkanoid_enabled)
+    {
+        if (addr == 0x4016)
+            return s_snesticle_arkanoid_fire ? 0x02 : 0;
+
+        if (addr == 0x4017)
+        {
+            const int output =
+                (int)(((~s_snesticle_arkanoid_shift) >> 6) & 0x02U);
+            s_snesticle_arkanoid_shift <<= 1;
+            return output;
+        }
+        return 0;
+    }
+
+    if (addr == 0x4017)
+    {
+        quicknes_snesticle_turbofile_init();
+        return (int)(((s_snesticle_turbofile[
+            s_snesticle_turbofile_position >> 3] >>
+            (s_snesticle_turbofile_position & 7U)) & 0x01U) << 2);
+    }
+
+    return 0;
+}
+
+
 void Nes_Core::write_io( nes_addr_t addr, int data )
 {
 	// sprite dma
@@ -317,6 +486,9 @@ void Nes_Core::write_io( nes_addr_t addr, int data )
 	// joypad strobe
 	if ( addr == 0x4016 )
 	{
+		/* AURORA_QN_EXT_TURBOFILE_VAUS_V2_20260828 */
+		quicknes_snesticle_ext_write(data);
+
 		// if strobe goes low, latch data
 		if ( joypad.w4016 & 1 & ~data )
 		{
@@ -367,14 +539,15 @@ int Nes_Core::read_io( nes_addr_t addr )
 	if ( (addr & 0xFFFE) == 0x4016 )
 	{
 		const int mic = quicknes_snesticle_microphone_bit(addr);
+		const int ext = quicknes_snesticle_ext_read(addr);
 
 		if ( joypad.w4016 & 1 )
-			return (current_joypad [addr & 1] & 1) | mic;
+			return (current_joypad [addr & 1] & 1) | mic | ext;
 
 		unsigned long result = joypad.joypad_latches [addr & 1];
 		joypad.joypad_latches [addr & 1] =
 			(result >> 1) | 0x80000000;
-		return (result & 1) | mic;
+		return (result & 1) | mic | ext;
 	}
 	
 	if ( addr == Nes_Apu::status_addr )
