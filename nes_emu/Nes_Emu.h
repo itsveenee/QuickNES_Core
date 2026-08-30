@@ -183,6 +183,23 @@ public:
 		sprites_enhanced = 64 // unlimited sprites per scanline (no flickering)
 	};
 	void set_sprite_mode( sprite_mode_t n ) { emu.ppu.sprite_limit = n; }
+
+	/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830 */
+	void debug_ppu_scroll(unsigned *count, unsigned *first, unsigned *second,
+	                      long *t0, long *t1, int *mirror,
+	                      unsigned *v, unsigned *t, unsigned *fine) const
+	{
+		/* AURORA_PCE_ROOT512_KRAZY_LATCH_V12_20260830 */
+		if (count)  *count = emu.ppu.debug_latch_count;
+		if (first)  *first = emu.ppu.debug_latch_first;
+		if (second) *second = emu.ppu.debug_latch_second;
+		if (t0)     *t0 = emu.ppu.debug_latch_first_time;
+		if (t1)     *t1 = emu.ppu.debug_latch_second_time;
+		if (mirror) *mirror = emu.ppu.debug_nt_mirroring();
+		if (v)      *v = emu.ppu.debug_latch_v;
+		if (t)      *t = emu.ppu.debug_latch_t;
+		if (fine)   *fine = emu.ppu.debug_latch_fine;
+	}
 	/* AURORA_V15_MULTICORE_SPRITE_LIMIT_20260824
 	 * Rendering-only limits; PPU overflow/status emulation remains in the
 	 * existing timing path and is not made to fire at these lower budgets. */

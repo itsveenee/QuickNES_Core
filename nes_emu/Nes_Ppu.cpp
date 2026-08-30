@@ -645,6 +645,18 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 		
 		case 5:
 			render_bg_until( time );
+			/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830 */
+			if ( debug_scroll_count == 0 )
+			{
+				debug_scroll_first = (unsigned)data;
+				debug_scroll_first_time = time;
+			}
+			else if ( debug_scroll_count == 1 )
+			{
+				debug_scroll_second = (unsigned)data;
+				debug_scroll_second_time = time;
+			}
+			debug_scroll_count++;
 			if ( (second_write ^= 1) )
 			{
 				pixel_x = data & 7;
@@ -699,6 +711,29 @@ nes_time_t Nes_Ppu::begin_frame( ppu_time_t timestamp )
 	if ( w2000 & 0x80 & r2002 )
 		nmi_time_ = 2 - (extra_clocks >> 1);
 	
+	/* AURORA_PCE_ROOT512_KRAZY_LATCH_V12_20260830
+	 * Capture the previous completed frame before clearing the live counters.
+	 * Keep it readable for 120 frames (~2 seconds). */
+	if (debug_latch_age > 0)
+		debug_latch_age--;
+	else if (debug_scroll_count > 0)
+	{
+		debug_latch_count = debug_scroll_count;
+		debug_latch_first = debug_scroll_first;
+		debug_latch_second = debug_scroll_second;
+		debug_latch_first_time = debug_scroll_first_time;
+		debug_latch_second_time = debug_scroll_second_time;
+		debug_latch_v = vram_addr;
+		debug_latch_t = vram_temp;
+		debug_latch_fine = pixel_x;
+		debug_latch_age = 120;
+	}
+
+	/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830 */
+	debug_scroll_count = 0;
+	debug_scroll_first = debug_scroll_second = 0;
+	debug_scroll_first_time = debug_scroll_second_time = 0;
+
 	// bg rendering
 	frame_phase = 0;
 	scanline_count = 0;
