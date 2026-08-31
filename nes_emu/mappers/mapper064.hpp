@@ -124,7 +124,11 @@ class Mapper_Rambo1 : public Nes_Mapper
 
     bool scanline_clock_enabled() const
     {
-        if (!ppu_enabled())
+        /* AURORA_V3_3_A12_FAMILY_NOTIFY_FIX_20260831
+         * RAMBO-1 scanline mode follows PPU A12. Either BG or sprite
+         * rendering is enough to keep the fetch pipeline active.
+         * CPU-cycle IRQ mode bypasses this helper entirely. */
+        if (!(emu().ppu.w2001 & 0x18))
             return false;
 
         int ctrl = emu().ppu.w2000;
@@ -205,6 +209,12 @@ public:
         register_state(&s, sizeof s);
     }
 
+    /* AURORA_V3_3_A12_FAMILY_NOTIFY_FIX_20260831
+     * Applies to both Mapper064 and Mapper158 (same RAMBO-1 template).
+     * Only scanline mode depends on these PPU inputs; cycle mode remains
+     * governed solely by its 4-CPU-cycle prescaler. */
+    virtual bool ppu_ctrl_mask_irq_sensitive() const { return true; }
+
     void reset_state()
     {
         memset(&s, 0, sizeof s);
@@ -254,30 +264,59 @@ public:
             s.irq_due = -1;
         }
 
-        if (s.irq_cycle_mode || s.force_clock)
+        /* AURORA_V4_A12_CURSOR_FORCECLOCK_20260831
+         * RAMBO-1 has two IRQ clock sources. In CPU-cycle mode, A12 is
+         * ignored but the synthetic scanline cursor must still advance so
+         * switching back cannot replay old scanlines. When leaving CPU
+         * mode, force_clock remains a real one-shot CPU-clock event while
+         * A12 scanline events are active again, so merge the two event
+         * streams chronologically instead of making force_clock suppress
+         * the scanline path for the whole run_until() interval. */
+        const int32_t end_ppu = (int32_t)(end_time * ppu_overclock);
+
+        if (s.irq_cycle_mode)
         {
             while (s.next_cpu_clock <= end_time)
             {
                 clock_irq(s.next_cpu_clock, 1);
                 s.next_cpu_clock += 4;
-
-                if (s.force_clock)
-                {
-                    s.force_clock = 0;
-                    if (!s.irq_cycle_mode)
-                        break;
-                }
             }
-        }
-        else if (scanline_clock_enabled())
-        {
-            int32_t end_ppu = (int32_t)(end_time * ppu_overclock);
 
             while (s.next_scanline < end_ppu &&
                    s.next_scanline <= last_scanline)
-            {
-                clock_irq(s.next_scanline / ppu_overclock, 2);
                 s.next_scanline += Nes_Ppu::scanline_len;
+        }
+        else
+        {
+            const bool clock_scanlines = scanline_clock_enabled();
+
+            while (true)
+            {
+                const bool scan_due =
+                    s.next_scanline < end_ppu &&
+                    s.next_scanline <= last_scanline;
+                const bool force_due =
+                    s.force_clock && s.next_cpu_clock <= end_time;
+
+                if (!scan_due && !force_due)
+                    break;
+
+                const int32_t force_ppu =
+                    (int32_t)(s.next_cpu_clock * ppu_overclock);
+
+                if (force_due &&
+                    (!scan_due || force_ppu <= s.next_scanline))
+                {
+                    clock_irq(s.next_cpu_clock, 1);
+                    s.next_cpu_clock += 4;
+                    s.force_clock = 0;
+                }
+                else
+                {
+                    if (clock_scanlines)
+                        clock_irq(s.next_scanline / ppu_overclock, 2);
+                    s.next_scanline += Nes_Ppu::scanline_len;
+                }
             }
         }
 
@@ -318,17 +357,32 @@ public:
         if (s.irq_cycle_mode)
             return s.next_cpu_clock + (clocks - 1) * 4 + 1;
 
-        if (!scanline_clock_enabled())
-            return no_irq;
+        /* A pending force_clock is a mapper event even after CPU-cycle
+         * mode has been cleared. Stop the CPU no later than that event
+         * (+ RAMBO-1's one-cycle IRQ delay), then run_until() will consume
+         * it and next_irq() can recalculate from the resulting state.
+         * Returning an early event is safe even when this particular
+         * force clock does not itself assert IRQ. */
+        nes_time_t force_time = no_irq;
+        if (s.force_clock && s.irq_enabled)
+            force_time = s.next_cpu_clock + 1;
 
-        int32_t ppu_t =
-            s.next_scanline +
-            (clocks - 1) * Nes_Ppu::scanline_len;
+        nes_time_t scanline_time = no_irq;
+        if (scanline_clock_enabled())
+        {
+            int32_t ppu_t =
+                s.next_scanline +
+                (clocks - 1) * Nes_Ppu::scanline_len;
 
-        if (ppu_t > last_scanline)
-            return no_irq;
+            if (ppu_t <= last_scanline)
+                scanline_time = ppu_t / ppu_overclock + 2;
+        }
 
-        return ppu_t / ppu_overclock + 2;
+        if (force_time != no_irq &&
+            (scanline_time == no_irq || force_time < scanline_time))
+            return force_time;
+
+        return scanline_time;
     }
 
     void a12_clocked()

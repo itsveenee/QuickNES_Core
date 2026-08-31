@@ -50,6 +50,36 @@ public:
 	}
 	
 	void start_frame() { next_time = first_scanline; }
+
+	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831
+	 * QuickNES does not model every PPU pattern fetch, so mapper 4 keeps a
+	 * scanline-level approximation of the MMC3's filtered A12 input.
+	 *
+	 * For 8x8 sprites, a qualifying per-scanline edge exists when BG and
+	 * sprite pattern fetches use opposite 4 KiB halves. 8x16 selects A12
+	 * per sprite tile, so keep the conservative historical clock there.
+	 * Either BG OR sprite rendering can keep the fetch pipeline active.
+	 *
+	 * Most importantly, both next_irq() and run_until() call THIS helper,
+	 * so the scheduler can never predict an IRQ that the counter refuses
+	 * to clock under the same PPU state. */
+	bool scanline_a12_clocking() const
+	{
+		if ( !(emu().ppu.w2001 & 0x18) )
+			return false;
+
+		const int ctrl = emu().ppu.w2000;
+		if ( ctrl & 0x20 )
+			return true;
+
+		const int tables = ctrl & 0x18;
+		return tables == 0x08 || tables == 0x10;
+	}
+
+	/* AURORA_V3_2_MMC3_PPU_NOTIFY_ISOLATION_20260831
+	 * Mapper118/119 inherit this automatically because they are MMC3-family
+	 * boards and derive from Mapper004. */
+	virtual bool ppu_ctrl_mask_irq_sensitive() const { return true; }
 	
 	virtual void apply_mapping()
 	{
@@ -96,7 +126,7 @@ public:
 		if ( irq_flag )
 			return 0;
 		
-		if ( !ppu_enabled() )
+		if ( !scanline_a12_clocking() )
 			return no_irq;
 		
 		int remain = irq_ctr - 1;
@@ -112,33 +142,7 @@ public:
 
 	void run_until( nes_time_t end_time )
 	{
-		bool bg_enabled = ppu_enabled();
-
-		// The MMC3 IRQ counter is clocked by rising edges on PPU A12.
-		// During normal rendering, A12 transitions once per scanline IFF
-		// the background and sprite pattern tables are in different
-		// halves of CHR (different A12 values, controlled by PPUCTRL
-		// bits 3-4). If both BG and sprites use the same pattern table
-		// half, A12 doesn't transition during visible rendering and the
-		// IRQ counter doesn't clock.
-		//
-		// Mega Man 3's pause menu (issue #76) configures both BG and
-		// sprites at $1000 expecting no IRQ counter clocking during
-		// visible scanlines -- the game relies on the IRQ NOT firing so
-		// the HUD's nametable scroll-split stays put. Without this check
-		// QuickNES over-clocks the counter, fires extra IRQs each of
-		// which reapplies the scroll, and the same HUD row renders
-		// multiple times stacked.
-		//
-		// 8x16 sprite mode (PPUCTRL bit 5) uses per-tile pattern table
-		// selection so A12 may still transition regardless of bits 3-4;
-		// in that mode we conservatively keep the per-scanline clocking.
-		// Per-tile sprite-pattern detection would need OAM inspection
-		// which isn't worth it here.
-		int ctrl                  = emu().ppu.w2000;
-		bool sprite_8x16          = (ctrl & 0x20) != 0;
-		bool same_pattern_table   = ((ctrl & 0x18) == 0x00) || ((ctrl & 0x18) == 0x18);
-		bool clock_per_scanline   = bg_enabled && (!same_pattern_table || sprite_8x16);
+		const bool clock_per_scanline = scanline_a12_clocking();
 
 		if (next_time < 0) next_time = 0;
 

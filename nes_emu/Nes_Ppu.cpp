@@ -567,6 +567,12 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 	{
 		case 0:{// control
 			int changed = w2000 ^ data;
+
+			/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: keep mapper IRQ time coherent across PPUCTRL
+			 * pattern-table or 8x16-sprite changes. */
+			if ( (changed & 0x38) &&
+			     emu.mapper->ppu_ctrl_mask_irq_sensitive() )
+				emu.mapper->run_until( time );
 			
 			if ( changed & 0x28 )
 				render_until( time ); // obj height or pattern addr changed
@@ -597,6 +603,10 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 			w2000 = data;
 			addr_inc = data & 4 ? 32 : 1;
 
+			if ( (changed & 0x38) &&
+			     emu.mapper->ppu_ctrl_mask_irq_sensitive() )
+				emu.irq_changed();
+
 			break;
 		}
 		
@@ -614,7 +624,13 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 			else if ( changed & 0x0A )
 				render_bg_until( time + 1 ); // bg enable/clipping changed
 			
-			if ( changed & 0x08 ) // bg enabled changed
+			/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: either rendering layer changes MMC3 A12 activity. */
+			/* AURORA_V3_3_A12_FAMILY_NOTIFY_FIX_20260831
+			 * Preserve QuickNES's historical global BG-enable synchronization.
+			 * The sprite-enable extension is only for A12-sensitive families. */
+			if ( (changed & 0x08) ||
+			     ((changed & 0x10) &&
+			      emu.mapper->ppu_ctrl_mask_irq_sensitive()) )
 				emu.mapper->run_until( time );
 			
 			if ( !(w2001 & 0x18) != !(data & 0x18) )
@@ -622,7 +638,9 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 			
 			w2001 = data;
 			
-			if ( changed & 0x08 )
+			if ( (changed & 0x08) ||
+			     ((changed & 0x10) &&
+			      emu.mapper->ppu_ctrl_mask_irq_sensitive()) )
 				emu.irq_changed();
 
 			break;
@@ -645,18 +663,8 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 		
 		case 5:
 			render_bg_until( time );
-			/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830 */
-			if ( debug_scroll_count == 0 )
-			{
-				debug_scroll_first = (unsigned)data;
-				debug_scroll_first_time = time;
-			}
-			else if ( debug_scroll_count == 1 )
-			{
-				debug_scroll_second = (unsigned)data;
-				debug_scroll_second_time = time;
-			}
-			debug_scroll_count++;
+			/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: stale Krazy $2005 diagnostics removed from
+			 * the global QuickNES PPU hot path. */
 			if ( (second_write ^= 1) )
 			{
 				pixel_x = data & 7;
@@ -711,28 +719,7 @@ nes_time_t Nes_Ppu::begin_frame( ppu_time_t timestamp )
 	if ( w2000 & 0x80 & r2002 )
 		nmi_time_ = 2 - (extra_clocks >> 1);
 	
-	/* AURORA_PCE_ROOT512_KRAZY_LATCH_V12_20260830
-	 * Capture the previous completed frame before clearing the live counters.
-	 * Keep it readable for 120 frames (~2 seconds). */
-	if (debug_latch_age > 0)
-		debug_latch_age--;
-	else if (debug_scroll_count > 0)
-	{
-		debug_latch_count = debug_scroll_count;
-		debug_latch_first = debug_scroll_first;
-		debug_latch_second = debug_scroll_second;
-		debug_latch_first_time = debug_scroll_first_time;
-		debug_latch_second_time = debug_scroll_second_time;
-		debug_latch_v = vram_addr;
-		debug_latch_t = vram_temp;
-		debug_latch_fine = pixel_x;
-		debug_latch_age = 120;
-	}
-
-	/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830 */
-	debug_scroll_count = 0;
-	debug_scroll_first = debug_scroll_second = 0;
-	debug_scroll_first_time = debug_scroll_second_time = 0;
+	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: removed the abandoned per-frame Krazy diagnostic latch. */
 
 	// bg rendering
 	frame_phase = 0;

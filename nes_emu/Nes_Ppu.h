@@ -49,25 +49,8 @@ public:
 	
 	int burst_phase;
 
-	/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830
-	 * Hidden $2005 probe retained for future diagnostics. */
-	unsigned debug_scroll_count;
-	unsigned debug_scroll_first;
-	unsigned debug_scroll_second;
-	nes_time_t debug_scroll_first_time;
-	nes_time_t debug_scroll_second_time;
-
-	/* AURORA_PCE_ROOT512_KRAZY_LATCH_V12_20260830
-	 * Readable snapshot of one completed frame, held for ~2 seconds. */
-	unsigned debug_latch_age;
-	unsigned debug_latch_count;
-	unsigned debug_latch_first;
-	unsigned debug_latch_second;
-	nes_time_t debug_latch_first_time;
-	nes_time_t debug_latch_second_time;
-	unsigned debug_latch_v;
-	unsigned debug_latch_t;
-	unsigned debug_latch_fine;
+	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: Krazy diagnostics intentionally removed; emulated PPU state
+	 * remains exclusively in ppu_state_t and normal runtime fields. */
 	
 private:
 	
@@ -141,15 +124,7 @@ inline void Nes_Ppu::suspend_rendering()
 inline Nes_Ppu::Nes_Ppu( Nes_Core* e ) : emu( *e )
 {
 	burst_phase = 0;
-	/* AURORA_PCE_ROOT512_KRAZY_LATCH_V12_20260830 */
-	debug_scroll_count = 0;
-	debug_scroll_first = debug_scroll_second = 0;
-	debug_scroll_first_time = debug_scroll_second_time = 0;
-	debug_latch_age = 0;
-	debug_latch_count = 0;
-	debug_latch_first = debug_latch_second = 0;
-	debug_latch_first_time = debug_latch_second_time = 0;
-	debug_latch_v = debug_latch_t = debug_latch_fine = 0;
+	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: no host-only Krazy probe state in every Nes_Ppu instance. */
 	suspend_rendering();
 }
 

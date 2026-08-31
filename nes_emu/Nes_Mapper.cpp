@@ -191,6 +191,9 @@ nes_time_t Nes_Mapper::next_irq( nes_time_t ) { return no_irq; }
 
 void Nes_Mapper::a12_clocked() { }
 
+/* AURORA_V3_2_MMC3_PPU_NOTIFY_ISOLATION_20260831 */
+bool Nes_Mapper::ppu_ctrl_mask_irq_sensitive() const { return false; }
+
 /* AURORA_FINAL10_DEFAULT_HOOKS_V1 */
 long Nes_Mapper::chr_ram_size() const { return 0x2000; }
 long Nes_Mapper::aux_chr_ram_size() const { return 0; }

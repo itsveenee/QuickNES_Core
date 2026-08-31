@@ -32,7 +32,11 @@ class Mapper048 : public Nes_Mapper
 
     bool scanline_clock_enabled() const
     {
-        if (!ppu_enabled())
+        /* AURORA_V3_3_A12_FAMILY_NOTIFY_FIX_20260831
+         * Mapper 48's IRQ is MMC3-like and driven by filtered PPU A12.
+         * Either BG or sprite rendering keeps the rendering fetch pipeline
+         * active; do not use Nes_Mapper::ppu_enabled(), which is BG-only. */
+        if (!(emu().ppu.w2001 & 0x18))
             return false;
 
         int ctrl = emu().ppu.w2000;
@@ -117,6 +121,11 @@ public:
         register_state(&s, sizeof s);
     }
 
+    /* AURORA_V3_3_A12_FAMILY_NOTIFY_FIX_20260831
+     * PPUCTRL pattern/8x16 changes and PPUMASK sprite changes can alter
+     * the A12 scanline source used by this mapper's IRQ predictor. */
+    virtual bool ppu_ctrl_mask_irq_sensitive() const { return true; }
+
     void reset_state()
     {
         memset(&s, 0, sizeof s);
@@ -139,17 +148,24 @@ public:
             s.irq_due = -1;
         }
 
-        if (scanline_clock_enabled())
-        {
-            int32_t end_ppu = (int32_t)(end_time * ppu_overclock);
+        /* AURORA_V4_A12_CURSOR_FORCECLOCK_20260831
+         * Keep the synthetic A12 scanline cursor monotonic even while
+         * rendering/A12 clocking is inactive. The old code advanced
+         * next_scanline only when scanline_clock_enabled() was true, so
+         * re-enabling rendering or changing pattern-table eligibility
+         * could retroactively clock scanlines that had already elapsed. */
+        const bool clock_scanlines = scanline_clock_enabled();
+        int32_t end_ppu = (int32_t)(end_time * ppu_overclock);
 
-            while (s.next_scanline < end_ppu &&
-                   s.next_scanline <= last_scanline)
+        while (s.next_scanline < end_ppu &&
+               s.next_scanline <= last_scanline)
+        {
+            if (clock_scanlines)
             {
                 nes_time_t t = s.next_scanline / ppu_overclock;
                 clock_irq_counter(t);
-                s.next_scanline += Nes_Ppu::scanline_len;
             }
+            s.next_scanline += Nes_Ppu::scanline_len;
         }
 
         if (s.irq_due >= 0 && end_time >= s.irq_due)

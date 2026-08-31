@@ -27,14 +27,24 @@ public:
 	{
 		mmc1_state_t* state = this;
 		register_state( state, sizeof *state );
+		last_write_time = 0;
+		last_write_valid = false;
 	}
-	
+
+private:
+	nes_time_t last_write_time;
+	bool last_write_valid;
+
+public:
 	virtual void reset_state()
 	{
 		regs [0] = 0x0f;
 		regs [1] = 0x00;
 		regs [2] = 0x01;
 		regs [3] = 0x00;
+		/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: runtime-only MMC1 M2 write filter. */
+		last_write_time = 0;
+		last_write_valid = false;
 	}
 	
 	int mmc1_sram_bank() const
@@ -56,32 +66,65 @@ public:
 		enable_sram(); // early MMC1 always had SRAM enabled
 		set_sram_bank( mmc1_sram_bank() );
 		register_changed( 0 );
+
+		/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831
+		 * last_write_* is host/runtime timing state, not cartridge state.
+		 * Reset it after state-load so the first real post-load write can
+		 * never be discarded because of an old host timestamp. */
+		last_write_valid = false;
+	}
+
+	/* AURORA_V3_1_QN_MMC1_FRAME_LATCH_HARDEN_20260831
+	 * QuickNES mapper timestamps are relative to the current emulated frame.
+	 * Do not carry the RMW write-suppression timestamp into the next frame:
+	 * an unrelated later write could otherwise collide numerically with it.
+	 * emulate_frame() calls end_frame() only after the current CPU instruction
+	 * has completed, so the two write phases of one RMW cannot be split here. */
+	virtual void end_frame( nes_time_t )
+	{
+		last_write_time = 0;
+		last_write_valid = false;
 	}
 	
-	virtual void write( nes_time_t, nes_addr_t addr, int data )
+	virtual void write( nes_time_t time, nes_addr_t addr, int data )
 	{
-		if ( !(data & 0x80) )
+		/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831
+		 * Real MMC1 accepts the first serial-port write of a consecutive
+		 * CPU-write sequence and ignores later D0 writes until a read cycle.
+		 * QuickNES accounts an instruction's cycles up front, so the two
+		 * write phases of an absolute RMW instruction reach the mapper with
+		 * the SAME timestamp. Equal timestamps are therefore the precise
+		 * representation available in this CPU core for that RMW pair.
+		 *
+		 * Bit 7 reset is intentionally handled FIRST: real MMC1 never filters
+		 * reset writes, including a reset occurring on the second RMW write. */
+		if ( data & 0x80 )
 		{
-			buf |= (data & 1) << bit; 
-			bit++;
-			
-			if ( bit >= 5 )
-			{
-				int reg = addr >> 13 & 3;
-				regs [reg] = buf & 0x1f;
-				
-				bit = 0;
-				buf = 0;
-				
-				register_changed( reg );
-			}
-		}
-		else
-		{
+			last_write_time = time;
+			last_write_valid = true;
 			bit = 0;
 			buf = 0;
 			regs [0] |= 0x0c;
 			register_changed( 0 );
+			return;
+		}
+
+		if ( last_write_valid && time == last_write_time )
+			return;
+
+		last_write_time = time;
+		last_write_valid = true;
+
+		buf |= (data & 1) << bit;
+		bit++;
+
+		if ( bit >= 5 )
+		{
+			int reg = addr >> 13 & 3;
+			regs [reg] = buf & 0x1f;
+			bit = 0;
+			buf = 0;
+			register_changed( reg );
 		}
 	}
 

@@ -52,20 +52,7 @@ public:
 	void set_vram_address_hook( Nes_Mapper* m ) { vram_address_hook = m; }
 	void notify_vram_address( int addr );
 
-	/* AURORA_PCE_KRAZY_RUNTIME_DIAG_V11R3_20260830
-	 * 0=horizontal, 1=vertical, 2=other/four-screen/special. */
-	int debug_nt_mirroring() const
-	{
-		if (!impl) return -1;
-		const uint8_t *base = impl->nt_ram;
-		const long a = (long)(nt_banks[0] - base) / 0x400;
-		const long b = (long)(nt_banks[1] - base) / 0x400;
-		const long c = (long)(nt_banks[2] - base) / 0x400;
-		const long d = (long)(nt_banks[3] - base) / 0x400;
-		if (a == 0 && b == 0 && c == 1 && d == 1) return 0;
-		if (a == 0 && b == 1 && c == 0 && d == 1) return 1;
-		return 2;
-	}
+	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: removed unused Krazy mirroring diagnostic helper. */
 	
 	// Enable/disable MMC5 extended-attribute (ExGrafix) background rendering.
 	// exram is the 1 KiB ExRAM buffer (null disables); chr_high supplies the

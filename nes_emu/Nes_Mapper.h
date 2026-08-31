@@ -79,6 +79,13 @@ public:
 	// Called when bit 12 of PPU's VRAM address changes from 0 to 1 due to
 	// $2006 and $2007 accesses (but not due to PPU scanline rendering).
 	virtual void a12_clocked();
+
+	/* AURORA_V3_2_MMC3_PPU_NOTIFY_ISOLATION_20260831
+	 * True only for mapper families whose IRQ prediction depends on the
+	 * current PPUCTRL/PPUMASK inputs used by QuickNES's scanline-level A12
+	 * approximation. Default is false so unrelated mappers never receive
+	 * the V3 synchronization callbacks. */
+	virtual bool ppu_ctrl_mask_irq_sensitive() const;
 	/* AURORA_FINAL10_CHR_HOOKS_V1 */
 	virtual long chr_ram_size() const;
 	virtual long aux_chr_ram_size() const;
