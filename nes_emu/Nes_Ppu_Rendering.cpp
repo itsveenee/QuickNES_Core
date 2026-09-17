@@ -53,6 +53,30 @@ inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile( int index )
 			((uint8_t*) tile_cache + map_chr_addr( index * bytes_per_tile ));
 }
 
+/* AURORA_QN_PEC586_TILE_DECODE_V7_20260917
+ * In PEC-586 1-bpp mode, the last nametable fetch drives CHR A12 from PPU A9
+ * and CHR A3 from PPU A0.  Both pattern-plane fetches therefore see the same
+ * physical 8-byte half.  Reuse QuickNES's already-decoded 2-bpp tile cache and
+ * duplicate the selected plane bit into both pixel bits; the normal renderer
+ * remains untouched when this mapper-only mode is off. */
+inline Nes_Ppu_Impl::cached_tile_t const&
+Nes_Ppu_Impl::get_bg_tile_pec586( int tile, int nt_addr )
+{
+	int physical_tile = ((nt_addr >> 9) & 1) * 0x100 + (tile & 0xff);
+	cached_tile_t const& src = get_bg_tile( physical_tile );
+	unsigned shift = (unsigned)nt_addr & 1U;
+	for ( int i = 0; i < 4; ++i )
+	{
+		/* AURORA_QN_PEC586_TWO_SCANLINE_MASK_V7_1_20260917
+		 * cached_tile_t packs two scanlines into every 32-bit word.
+		 * After selecting the source plane, 0x55555555 keeps the
+		 * selected bit for BOTH packed scanlines before duplication. */
+		cache_t plane = (src [i] >> shift) & 0x55555555U;
+		pec586_tile_scratch [i] = plane | (plane << 1);
+	}
+	return pec586_tile_scratch;
+}
+
 inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile_ex( int exram_byte, int tile )
 {
 	// MMC5 ExGrafix: bank comes from ExRAM, not the normal CHR mapping.
@@ -208,6 +232,12 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 				#include "Nes_Ppu_Bg.h"
 				#undef BG_EXGRAFIX
 			}
+			else if ( pec586_1bpp_enabled() )
+			{
+				#define BG_PEC586
+				#include "Nes_Ppu_Bg.h"
+				#undef BG_PEC586
+			}
 			else
 			{
 				#include "Nes_Ppu_Bg.h"
@@ -225,6 +255,12 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 				#define BG_EXGRAFIX
 				#include "Nes_Ppu_Bg.h"
 				#undef BG_EXGRAFIX
+			}
+			else if ( pec586_1bpp_enabled() )
+			{
+				#define BG_PEC586
+				#include "Nes_Ppu_Bg.h"
+				#undef BG_PEC586
 			}
 			else
 			{

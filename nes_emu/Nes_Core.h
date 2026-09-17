@@ -113,6 +113,26 @@ public: private: friend class Nes_Mapper;
 		sram_present = true;
 		return impl->sram;
 	}
+	/* AURORA_QN_M164_CORE_SRAM_MIRROR_V7_20260917
+	 * Map CPU instruction fetches onto a mapper-owned mirrored slice of the
+	 * existing SRAM backing without enabling the normal $6000 SRAM window.
+	 * Data reads/writes remain mapper-intercepted, so persistent EEPROM bytes
+	 * can occupy a different slice of the same backing. */
+	void mapper_map_sram_mirror( nes_addr_t addr, unsigned size,
+	                             unsigned storage_offset,
+	                             unsigned mirror_size )
+	{
+		if (!mirror_size ||
+		    (mirror_size % cpu::page_size) != 0 ||
+		    storage_offset + mirror_size > impl_t::sram_size)
+			return;
+		sram_present = true;
+		for (unsigned off = 0; off < size; off += cpu::page_size)
+		{
+			unsigned physical = storage_offset + (off % mirror_size);
+			cpu::map_code( addr + off, cpu::page_size, impl->sram + physical );
+		}
+	}
 	nes_time_t clock() const { return clock_; }
 	void add_mapper_intercept( nes_addr_t start, unsigned size, bool read, bool write );
 	

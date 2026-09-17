@@ -108,6 +108,9 @@ protected:
 	int sram_read_byte( nes_addr_t addr ) const;
 	void sram_write_byte( nes_addr_t addr, uint8_t data );
 	uint8_t* sram_data_ptr() const;
+	/* AURORA_QN_M164_SRAM_MIRROR_HELPER_V7_20260917 */
+	void map_sram_mirror( nes_addr_t addr, unsigned size,
+	                      unsigned storage_offset, unsigned mirror_size );
 
 	// Cause CPU writes within given address range to call mapper's write() function.
 	// Might map a larger address range, which the mapper can ignore and pass to
@@ -234,6 +237,12 @@ inline void Nes_Mapper::sram_write_byte( nes_addr_t addr, uint8_t data )
 inline uint8_t* Nes_Mapper::sram_data_ptr() const
 {
 	return emu().mapper_sram_data();
+}
+inline void Nes_Mapper::map_sram_mirror(
+	nes_addr_t addr, unsigned size, unsigned storage_offset,
+	unsigned mirror_size )
+{
+	emu().mapper_map_sram_mirror( addr, size, storage_offset, mirror_size );
 }
 inline bool Nes_Mapper::write_intercepted( nes_time_t, nes_addr_t, int ) { return false; }
 

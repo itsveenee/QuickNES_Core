@@ -82,6 +82,13 @@ private:
 /* AURORA_FINAL10_EEPROM_BATTERY_V1 */
 inline long Nes_Cart::battery_ram_size() const
 {
+	/* AURORA_QN_M164_EEPROM_BATTERY_V7_20260917
+	 * AURORA_QN_M164_EEPROM_PRIORITY_V7_1_20260917
+	 * Mapper 164 persistence is its dedicated 512-byte 93C66 EEPROM.
+	 * $6000-$7FFF WRAM is volatile, so even a legacy/incorrect iNES
+	 * battery bit must not promote it to QuickNES' generic 8 KiB save. */
+	if ( mapper_code_value == 164 )
+		return 0x0200;
 	if ( battery_ram_size_ > 0 )
 		return battery_ram_size_;
 	/* Existing Bandai EEPROM front-end compatibility: these mappers

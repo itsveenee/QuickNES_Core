@@ -44,15 +44,16 @@ nes_emu/Nes_Mapper.o: nes_emu/Nes_Mapper.cpp nes_emu/Nes_Mapper.h \
  nes_emu/mappers/mapper140.hpp nes_emu/mappers/mapper152.hpp \
  nes_emu/mappers/mapper154.hpp nes_emu/mappers/mapper156.hpp \
  nes_emu/mappers/mapper157.hpp nes_emu/mappers/mapper_bandai_eeprom.hpp \
- nes_emu/mappers/mapper159.hpp nes_emu/mappers/mapper180.hpp \
- nes_emu/mappers/mapper184.hpp nes_emu/mappers/mapper185.hpp \
- nes_emu/mappers/mapper188.hpp nes_emu/mappers/mapper190.hpp \
- nes_emu/mappers/mapper193.hpp nes_emu/mappers/mapper206.hpp \
- nes_emu/mappers/mapper207.hpp nes_emu/mappers/mapper210.hpp \
- nes_emu/mappers/mapper216.hpp nes_emu/mappers/mapper232.hpp \
- nes_emu/mappers/mapper240.hpp nes_emu/mappers/mapper241.hpp \
- nes_emu/mappers/mapper244.hpp nes_emu/mappers/mapper246.hpp \
- nes_emu/mappers/mapper347.hpp
+ nes_emu/mappers/mapper159.hpp nes_emu/mappers/mapper162.hpp \
+ nes_emu/mappers/mapper163.hpp nes_emu/mappers/mapper164.hpp \
+ nes_emu/mappers/mapper180.hpp nes_emu/mappers/mapper184.hpp \
+ nes_emu/mappers/mapper185.hpp nes_emu/mappers/mapper188.hpp \
+ nes_emu/mappers/mapper190.hpp nes_emu/mappers/mapper193.hpp \
+ nes_emu/mappers/mapper206.hpp nes_emu/mappers/mapper207.hpp \
+ nes_emu/mappers/mapper210.hpp nes_emu/mappers/mapper216.hpp \
+ nes_emu/mappers/mapper232.hpp nes_emu/mappers/mapper240.hpp \
+ nes_emu/mappers/mapper241.hpp nes_emu/mappers/mapper244.hpp \
+ nes_emu/mappers/mapper246.hpp nes_emu/mappers/mapper347.hpp
 nes_emu/Nes_Mapper.h:
 nes_emu/Nes_Cart.h:
 nes_emu/blargg_common.h:
@@ -152,6 +153,9 @@ nes_emu/mappers/mapper156.hpp:
 nes_emu/mappers/mapper157.hpp:
 nes_emu/mappers/mapper_bandai_eeprom.hpp:
 nes_emu/mappers/mapper159.hpp:
+nes_emu/mappers/mapper162.hpp:
+nes_emu/mappers/mapper163.hpp:
+nes_emu/mappers/mapper164.hpp:
 nes_emu/mappers/mapper180.hpp:
 nes_emu/mappers/mapper184.hpp:
 nes_emu/mappers/mapper185.hpp:

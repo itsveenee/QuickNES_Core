@@ -92,6 +92,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper156.hpp"
 #include "mappers/mapper157.hpp"
 #include "mappers/mapper159.hpp"
+/* AURORA_QUICKNES_MAPPERS_162_163_164_V7_20260917 */
+#include "mappers/mapper162.hpp"
+#include "mappers/mapper163.hpp"
+#include "mappers/mapper164.hpp"
 #include "mappers/mapper180.hpp"
 #include "mappers/mapper184.hpp"
 #include "mappers/mapper185.hpp"
@@ -411,6 +415,9 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case 157: mapper = new Mapper157(); break;
     case 158: mapper = new Mapper158(); break;
     case 159: mapper = new Mapper159(); break;
+    case 162: mapper = new Mapper162(); break;
+    case 163: mapper = new Mapper163(); break;
+    case 164: mapper = new Mapper164(); break;
     case 180: mapper = new Mapper180(); break;
     case 184: mapper = new Mapper184(); break;
     case 185: mapper = new Mapper185(); break;

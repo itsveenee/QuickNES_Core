@@ -14,7 +14,13 @@ while ( true )
 		unsigned long offset = (attrib & 3) * attrib_factor + this->palette_offset;
 		
 		// draw one tile
+#ifdef BG_PEC586
+		/* AURORA_QN_PEC586_BG_FETCH_V7_20260917 */
+		cache_t const* lines = this->get_bg_tile_pec586(
+			nametable [addr], addr );
+#else
 		cache_t const* lines = this->get_bg_tile( nametable [addr] + bg_bank );
+#endif
 #endif
 		uint8_t* p = pixels;
 		addr++;

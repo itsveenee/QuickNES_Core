@@ -51,6 +51,8 @@ public:
 	void set_nt_bank_chr( int page, long chr_1k_bank );
 	void set_vram_address_hook( Nes_Mapper* m ) { vram_address_hook = m; }
 	void notify_vram_address( int addr );
+	/* AURORA_QN_PEC586_1BPP_PPU_V7_20260917 */
+	void set_pec586_1bpp_mode( bool enabled ) { pec586_1bpp_mode = enabled; }
 
 	/* AURORA_V3_QN_MMC_ACCURACY_KRAZY_CLEANUP_20260831: removed unused Krazy mirroring diagnostic helper. */
 	
@@ -127,7 +129,9 @@ protected: //friend class Nes_Ppu_Rendering; private:
 	typedef uint32_t cache_t;
 	typedef cache_t cached_tile_t [4];
 	cached_tile_t const& get_bg_tile( int index );
+	cached_tile_t const& get_bg_tile_pec586( int tile, int nt_addr );
 	cached_tile_t const& get_bg_tile_ex( int exram_byte, int tile );
+	bool pec586_1bpp_enabled() const { return pec586_1bpp_mode; }
 	cached_tile_t const& get_sprite_tile( uint8_t const* sprite );
 	uint8_t* get_nametable( int addr ) { return nt_banks [addr >> 10 & 3]; };
 	
@@ -165,6 +169,9 @@ private:
 	bool nt_extra_ram_used;
 	bool special_nt_mode;
 	Nes_Mapper* vram_address_hook;
+
+	bool pec586_1bpp_mode;
+	cached_tile_t pec586_tile_scratch;
 
 	bool mmc24_enabled;
 	uint8_t mmc24_latched [2];

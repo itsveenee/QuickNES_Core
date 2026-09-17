@@ -39,6 +39,9 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	nt_extra_ram_used = false;
 	special_nt_mode = false;
 	vram_address_hook = NULL;
+	/* AURORA_QN_PEC586_INIT_V7_20260917 */
+	pec586_1bpp_mode = false;
+	memset( pec586_tile_scratch, 0, sizeof pec586_tile_scratch );
 	for ( int i = 0; i < 4; ++i ) nt_writable [i] = true;
 	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i ) chr_page_writable [i] = false;
 	tile_cache = NULL;
@@ -174,6 +177,7 @@ void Nes_Ppu_Impl::close_chr()
 	special_chr_mode = false;
 	chr_read_or_mask = 0;
 	special_nt_mode = false;
+	pec586_1bpp_mode = false;
 	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i )
 		chr_page_writable [i] = false;
 	delete [] tile_cache_mem;
