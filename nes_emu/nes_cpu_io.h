@@ -12,7 +12,23 @@ int Nes_Core::cpu_read( nes_addr_t addr, nes_time_t time )
 	
 	result = *cpu::get_code( addr );
 	if ( addr > 0x7FFF )
-		return result;
+    {
+        /* AURORA_VN54_HIGH_ROM_DATA_READ_BEGIN
+         * Only mapper pages explicitly registered through intercept_reads()
+         * pay for the extra mapper call. CPU opcode fetch remains direct.
+         * Re-read the ROM pointer afterwards: an address read may change banks.
+         */
+        if ( data_reader_mapped [addr >> page_bits] )
+        {
+            time += cpu_time_offset;
+            clock_ = time;
+            int const mapped = mapper->read( time, addr );
+            if ( mapped >= 0 ) return mapped;
+            return *cpu::get_code( addr );
+        }
+        /* AURORA_VN54_HIGH_ROM_DATA_READ_END */
+        return result;
+    }
 	
 	time += cpu_time_offset;
 	if ( addr < 0x4000 )

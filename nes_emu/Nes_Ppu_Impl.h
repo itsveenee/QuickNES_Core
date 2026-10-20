@@ -51,6 +51,7 @@ public:
 	void set_nt_bank_chr( int page, long chr_1k_bank );
 	void set_vram_address_hook( Nes_Mapper* m ) { vram_address_hook = m; }
 	void notify_vram_address( int addr );
+	void notify_vram_data_write( int addr );
 	/* AURORA_QN_PEC586_1BPP_PPU_V7_20260917 */
 	void set_pec586_1bpp_mode( bool enabled ) { pec586_1bpp_mode = enabled; }
 
@@ -247,6 +248,8 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 		changed ^= raw_addr;
 		int addr = raw_addr & 0x3fff;
 		notify_vram_address( addr );
+		if ( vram_address_hook && (unsigned)addr < 0x2000U )
+			notify_vram_data_write( addr );
 
 		if ( (unsigned) addr < 0x2000 )
 		{

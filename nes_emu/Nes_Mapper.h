@@ -89,8 +89,10 @@ public:
 	/* AURORA_FINAL10_CHR_HOOKS_V1 */
 	virtual long chr_ram_size() const;
 	virtual long aux_chr_ram_size() const;
+	virtual long aurora_extra_sram_save_size() const { return 0; }
 	virtual bool needs_vram_address_hook() const;
 	virtual void vram_address_changed( nes_addr_t addr );
+	virtual void ppu_data_written( nes_addr_t addr ) { (void) addr; }
 	
 protected:
 	// Services provided for derived mapper classes
@@ -139,6 +141,8 @@ protected:
 	
 	// Map 'size' bytes from 'PRG + bank * size' to CPU address space starting at 'addr'
 	void set_prg_bank( nes_addr_t addr, bank_size_t size, int bank );
+	void map_cpu_rom_page(nes_addr_t addr, uint8_t const* page);
+
 	
 	// Map 'size' bytes from 'CHR + bank * size' to PPU address space starting at 'addr'
 	void set_chr_bank( nes_addr_t addr, bank_size_t size, int bank );
@@ -244,6 +248,12 @@ inline void Nes_Mapper::map_sram_mirror(
 {
 	emu().mapper_map_sram_mirror( addr, size, storage_offset, mirror_size );
 }
+inline void Nes_Mapper::map_cpu_rom_page(nes_addr_t addr, uint8_t const* page)
+{
+	assert( (addr & (Nes_Cpu::page_size-1)) == 0 );
+	emu().map_code(addr, Nes_Cpu::page_size, page);
+}
+
 inline bool Nes_Mapper::write_intercepted( nes_time_t, nes_addr_t, int ) { return false; }
 
 inline int Nes_Mapper::read( nes_time_t, nes_addr_t ) { return -1; } // signal to caller

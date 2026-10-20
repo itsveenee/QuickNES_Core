@@ -53,7 +53,77 @@ nes_emu/Nes_Mapper.o: nes_emu/Nes_Mapper.cpp nes_emu/Nes_Mapper.h \
  nes_emu/mappers/mapper210.hpp nes_emu/mappers/mapper216.hpp \
  nes_emu/mappers/mapper232.hpp nes_emu/mappers/mapper240.hpp \
  nes_emu/mappers/mapper241.hpp nes_emu/mappers/mapper244.hpp \
- nes_emu/mappers/mapper246.hpp nes_emu/mappers/mapper347.hpp
+ nes_emu/mappers/mapper246.hpp nes_emu/mappers/mapper347.hpp \
+ nes_emu/mappers/aurora_vn46_mapper012.hpp \
+ nes_emu/mappers/aurora_vn32_mapper029.hpp \
+ nes_emu/mappers/aurora_vn49_mapper036.hpp \
+ nes_emu/mappers/aurora_vn34_mapper038.hpp \
+ nes_emu/mappers/aurora_vn33_mapper041.hpp \
+ nes_emu/mappers/aurora_vn43_mapper042.hpp \
+ nes_emu/mappers/aurora_vn41_mapper043.hpp \
+ nes_emu/mappers/aurora_vn35_mapper047.hpp \
+ nes_emu/mappers/aurora_vn31_mapper050.hpp \
+ nes_emu/mappers/aurora_vn40_mapper074.hpp \
+ nes_emu/mappers/aurora_vn32_mapper107.hpp \
+ nes_emu/mappers/aurora_vn32_mapper108.hpp \
+ nes_emu/mappers/aurora_vn32_mapper112.hpp \
+ nes_emu/mappers/aurora_vn50_mapper132.hpp \
+ nes_emu/mappers/aurora_vn32_mapper133.hpp \
+ nes_emu/mappers/aurora_vn37_mapper137.hpp \
+ nes_emu/mappers/aurora_vn33_mapper138.hpp \
+ nes_emu/mappers/aurora_vn33_mapper139.hpp \
+ nes_emu/mappers/aurora_vn33_mapper141.hpp \
+ nes_emu/mappers/aurora_vn31_mapper142.hpp \
+ nes_emu/mappers/aurora_vn50_mapper143.hpp \
+ nes_emu/mappers/aurora_vn33_mapper144.hpp \
+ nes_emu/mappers/aurora_vn32_mapper145.hpp \
+ nes_emu/mappers/aurora_vn34_mapper146.hpp \
+ nes_emu/mappers/aurora_vn49_mapper147.hpp \
+ nes_emu/mappers/aurora_vn33_mapper148.hpp \
+ nes_emu/mappers/aurora_vn33_mapper149.hpp \
+ nes_emu/mappers/aurora_vn32_mapper166.hpp \
+ nes_emu/mappers/aurora_vn32_mapper167.hpp \
+ nes_emu/mappers/aurora_vn49_mapper173.hpp \
+ nes_emu/mappers/aurora_vn53_mapper176.hpp \
+ nes_emu/mappers/aurora_vn35_mapper177.hpp \
+ nes_emu/mappers/aurora_vn31_mapper178.hpp \
+ nes_emu/mappers/aurora_vn44_mapper183.hpp \
+ nes_emu/mappers/aurora_vn39_mapper192.hpp \
+ nes_emu/mappers/aurora_vn39_mapper194.hpp \
+ nes_emu/mappers/aurora_vn52_mapper195.hpp \
+ nes_emu/mappers/aurora_vn39_mapper196.hpp \
+ nes_emu/mappers/aurora_vn36_mapper208.hpp \
+ nes_emu/mappers/aurora_vn48_mapper223.hpp \
+ nes_emu/mappers/aurora_vn48_mapper224.hpp \
+ nes_emu/mappers/aurora_vn42_mapper227.hpp \
+ nes_emu/mappers/aurora_vn45_mapper228.hpp \
+ nes_emu/mappers/aurora_vn35_mapper238.hpp \
+ nes_emu/mappers/aurora_vn42_mapper242.hpp \
+ nes_emu/mappers/aurora_vn40_mapper243.hpp \
+ nes_emu/mappers/aurora_vn34_mapper245.hpp \
+ nes_emu/mappers/aurora_vn51_mapper258.hpp \
+ nes_emu/mappers/aurora_vn35_mapper263.hpp \
+ nes_emu/mappers/aurora_vn55_mapper268.hpp \
+ nes_emu/mappers/aurora_vn28_mapper302.hpp \
+ nes_emu/mappers/aurora_vn29_mapper303.hpp \
+ nes_emu/mappers/aurora_vn31_mapper304.hpp \
+ nes_emu/mappers/aurora_vn28_mapper305.hpp \
+ nes_emu/mappers/aurora_vn28_mapper306.hpp \
+ nes_emu/mappers/aurora_vn29_mapper309.hpp \
+ nes_emu/mappers/aurora_vn29_mapper312.hpp \
+ nes_emu/mappers/aurora_vn29_mapper346.hpp \
+ nes_emu/mappers/aurora_vn30_mapper415.hpp \
+ nes_emu/mappers/aurora_vn31_mapper525.hpp \
+ nes_emu/mappers/aurora_vn29_mapper538.hpp \
+ nes_emu/mappers/aurora_vn28_mapper549.hpp \
+ nes_emu/mappers/aurora_vn37_mapper551.hpp \
+ nes_emu/mappers/aurora_vn45_mapper553.hpp \
+ nes_emu/mappers/aurora_vn54_mapper554.hpp \
+ nes_emu/mappers/aurora_vn37_mapper557.hpp \
+ nes_emu/mappers/aurora_37_40_91_150.hpp \
+ nes_emu/mappers/aurora_mapper090_160.hpp \
+ nes_emu/mappers/aurora_neighbor_gaps.hpp \
+ nes_emu/mappers/aurora_green_expansion.hpp
 nes_emu/Nes_Mapper.h:
 nes_emu/Nes_Cart.h:
 nes_emu/blargg_common.h:
@@ -172,3 +242,73 @@ nes_emu/mappers/mapper241.hpp:
 nes_emu/mappers/mapper244.hpp:
 nes_emu/mappers/mapper246.hpp:
 nes_emu/mappers/mapper347.hpp:
+nes_emu/mappers/aurora_vn46_mapper012.hpp:
+nes_emu/mappers/aurora_vn32_mapper029.hpp:
+nes_emu/mappers/aurora_vn49_mapper036.hpp:
+nes_emu/mappers/aurora_vn34_mapper038.hpp:
+nes_emu/mappers/aurora_vn33_mapper041.hpp:
+nes_emu/mappers/aurora_vn43_mapper042.hpp:
+nes_emu/mappers/aurora_vn41_mapper043.hpp:
+nes_emu/mappers/aurora_vn35_mapper047.hpp:
+nes_emu/mappers/aurora_vn31_mapper050.hpp:
+nes_emu/mappers/aurora_vn40_mapper074.hpp:
+nes_emu/mappers/aurora_vn32_mapper107.hpp:
+nes_emu/mappers/aurora_vn32_mapper108.hpp:
+nes_emu/mappers/aurora_vn32_mapper112.hpp:
+nes_emu/mappers/aurora_vn50_mapper132.hpp:
+nes_emu/mappers/aurora_vn32_mapper133.hpp:
+nes_emu/mappers/aurora_vn37_mapper137.hpp:
+nes_emu/mappers/aurora_vn33_mapper138.hpp:
+nes_emu/mappers/aurora_vn33_mapper139.hpp:
+nes_emu/mappers/aurora_vn33_mapper141.hpp:
+nes_emu/mappers/aurora_vn31_mapper142.hpp:
+nes_emu/mappers/aurora_vn50_mapper143.hpp:
+nes_emu/mappers/aurora_vn33_mapper144.hpp:
+nes_emu/mappers/aurora_vn32_mapper145.hpp:
+nes_emu/mappers/aurora_vn34_mapper146.hpp:
+nes_emu/mappers/aurora_vn49_mapper147.hpp:
+nes_emu/mappers/aurora_vn33_mapper148.hpp:
+nes_emu/mappers/aurora_vn33_mapper149.hpp:
+nes_emu/mappers/aurora_vn32_mapper166.hpp:
+nes_emu/mappers/aurora_vn32_mapper167.hpp:
+nes_emu/mappers/aurora_vn49_mapper173.hpp:
+nes_emu/mappers/aurora_vn53_mapper176.hpp:
+nes_emu/mappers/aurora_vn35_mapper177.hpp:
+nes_emu/mappers/aurora_vn31_mapper178.hpp:
+nes_emu/mappers/aurora_vn44_mapper183.hpp:
+nes_emu/mappers/aurora_vn39_mapper192.hpp:
+nes_emu/mappers/aurora_vn39_mapper194.hpp:
+nes_emu/mappers/aurora_vn52_mapper195.hpp:
+nes_emu/mappers/aurora_vn39_mapper196.hpp:
+nes_emu/mappers/aurora_vn36_mapper208.hpp:
+nes_emu/mappers/aurora_vn48_mapper223.hpp:
+nes_emu/mappers/aurora_vn48_mapper224.hpp:
+nes_emu/mappers/aurora_vn42_mapper227.hpp:
+nes_emu/mappers/aurora_vn45_mapper228.hpp:
+nes_emu/mappers/aurora_vn35_mapper238.hpp:
+nes_emu/mappers/aurora_vn42_mapper242.hpp:
+nes_emu/mappers/aurora_vn40_mapper243.hpp:
+nes_emu/mappers/aurora_vn34_mapper245.hpp:
+nes_emu/mappers/aurora_vn51_mapper258.hpp:
+nes_emu/mappers/aurora_vn35_mapper263.hpp:
+nes_emu/mappers/aurora_vn55_mapper268.hpp:
+nes_emu/mappers/aurora_vn28_mapper302.hpp:
+nes_emu/mappers/aurora_vn29_mapper303.hpp:
+nes_emu/mappers/aurora_vn31_mapper304.hpp:
+nes_emu/mappers/aurora_vn28_mapper305.hpp:
+nes_emu/mappers/aurora_vn28_mapper306.hpp:
+nes_emu/mappers/aurora_vn29_mapper309.hpp:
+nes_emu/mappers/aurora_vn29_mapper312.hpp:
+nes_emu/mappers/aurora_vn29_mapper346.hpp:
+nes_emu/mappers/aurora_vn30_mapper415.hpp:
+nes_emu/mappers/aurora_vn31_mapper525.hpp:
+nes_emu/mappers/aurora_vn29_mapper538.hpp:
+nes_emu/mappers/aurora_vn28_mapper549.hpp:
+nes_emu/mappers/aurora_vn37_mapper551.hpp:
+nes_emu/mappers/aurora_vn45_mapper553.hpp:
+nes_emu/mappers/aurora_vn54_mapper554.hpp:
+nes_emu/mappers/aurora_vn37_mapper557.hpp:
+nes_emu/mappers/aurora_37_40_91_150.hpp:
+nes_emu/mappers/aurora_mapper090_160.hpp:
+nes_emu/mappers/aurora_neighbor_gaps.hpp:
+nes_emu/mappers/aurora_green_expansion.hpp:

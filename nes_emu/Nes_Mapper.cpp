@@ -112,6 +112,76 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/mapper244.hpp"
 #include "mappers/mapper246.hpp"
 #include "mappers/mapper347.hpp"
+#include "mappers/aurora_vn46_mapper012.hpp"
+#include "mappers/aurora_vn32_mapper029.hpp"
+#include "mappers/aurora_vn49_mapper036.hpp"
+#include "mappers/aurora_vn34_mapper038.hpp"
+#include "mappers/aurora_vn33_mapper041.hpp"
+#include "mappers/aurora_vn43_mapper042.hpp"
+#include "mappers/aurora_vn41_mapper043.hpp"
+#include "mappers/aurora_vn35_mapper047.hpp"
+#include "mappers/aurora_vn31_mapper050.hpp"
+#include "mappers/aurora_vn40_mapper074.hpp"
+#include "mappers/aurora_vn32_mapper107.hpp"
+#include "mappers/aurora_vn32_mapper108.hpp"
+#include "mappers/aurora_vn32_mapper112.hpp"
+#include "mappers/aurora_vn50_mapper132.hpp"
+#include "mappers/aurora_vn32_mapper133.hpp"
+#include "mappers/aurora_vn37_mapper137.hpp"
+#include "mappers/aurora_vn33_mapper138.hpp"
+#include "mappers/aurora_vn33_mapper139.hpp"
+#include "mappers/aurora_vn33_mapper141.hpp"
+#include "mappers/aurora_vn31_mapper142.hpp"
+#include "mappers/aurora_vn50_mapper143.hpp"
+#include "mappers/aurora_vn33_mapper144.hpp"
+#include "mappers/aurora_vn32_mapper145.hpp"
+#include "mappers/aurora_vn34_mapper146.hpp"
+#include "mappers/aurora_vn49_mapper147.hpp"
+#include "mappers/aurora_vn33_mapper148.hpp"
+#include "mappers/aurora_vn33_mapper149.hpp"
+#include "mappers/aurora_vn32_mapper166.hpp"
+#include "mappers/aurora_vn32_mapper167.hpp"
+#include "mappers/aurora_vn49_mapper173.hpp"
+#include "mappers/aurora_vn53_mapper176.hpp"
+#include "mappers/aurora_vn35_mapper177.hpp"
+#include "mappers/aurora_vn31_mapper178.hpp"
+#include "mappers/aurora_vn44_mapper183.hpp"
+#include "mappers/aurora_vn39_mapper192.hpp"
+#include "mappers/aurora_vn39_mapper194.hpp"
+#include "mappers/aurora_vn52_mapper195.hpp"
+#include "mappers/aurora_vn39_mapper196.hpp"
+#include "mappers/aurora_vn36_mapper208.hpp"
+#include "mappers/aurora_vn48_mapper223.hpp"
+#include "mappers/aurora_vn48_mapper224.hpp"
+#include "mappers/aurora_vn42_mapper227.hpp"
+#include "mappers/aurora_vn45_mapper228.hpp"
+#include "mappers/aurora_vn35_mapper238.hpp"
+#include "mappers/aurora_vn42_mapper242.hpp"
+#include "mappers/aurora_vn40_mapper243.hpp"
+#include "mappers/aurora_vn34_mapper245.hpp"
+#include "mappers/aurora_vn51_mapper258.hpp"
+#include "mappers/aurora_vn35_mapper263.hpp"
+#include "mappers/aurora_vn55_mapper268.hpp"
+#include "mappers/aurora_vn28_mapper302.hpp"
+#include "mappers/aurora_vn29_mapper303.hpp"
+#include "mappers/aurora_vn31_mapper304.hpp"
+#include "mappers/aurora_vn28_mapper305.hpp"
+#include "mappers/aurora_vn28_mapper306.hpp"
+#include "mappers/aurora_vn29_mapper309.hpp"
+#include "mappers/aurora_vn29_mapper312.hpp"
+#include "mappers/aurora_vn29_mapper346.hpp"
+#include "mappers/aurora_vn30_mapper415.hpp"
+#include "mappers/aurora_vn31_mapper525.hpp"
+#include "mappers/aurora_vn29_mapper538.hpp"
+#include "mappers/aurora_vn28_mapper549.hpp"
+#include "mappers/aurora_vn37_mapper551.hpp"
+#include "mappers/aurora_vn45_mapper553.hpp"
+#include "mappers/aurora_vn54_mapper554.hpp"
+#include "mappers/aurora_vn37_mapper557.hpp"
+#include "mappers/aurora_37_40_91_150.hpp"
+#include "mappers/aurora_mapper090_160.hpp"
+#include "mappers/aurora_neighbor_gaps.hpp"
+#include "mappers/aurora_green_expansion.hpp"
 
 Nes_Mapper::Nes_Mapper()
 {
@@ -340,6 +410,32 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
   // unconditionally on every cart load) and guards against the silent
   // footgun where two entries for the same mapperCode would have both
   // executed -- the second would have leaked the first.
+  /* AURORA_VN36_BASE_FAMICOM_ONLY:
+ * No firmware/copy hardware or nonstandard peripherals. */
+if ((mapperCode == 12 && cart->submapper_code() != 0) ||
+    (mapperCode == 178 && (cart->submapper_code() == 1 || cart->submapper_code() == 2 || cart->submapper_code() == 3)) ||
+    (mapperCode == 208 && cart->submapper_code() > 1)) return NULL;
+/* AURORA_VN36_END_FAMICOM_ONLY */
+/* AURORA_VN43_GREEN_BERET_ONLY_BEGIN */
+if (mapperCode == 42 && (
+    (cart->submapper_code() != 0 && cart->submapper_code() != 2) ||
+    cart->chr_size() != 0 ||
+    (cart->prg_size() != 160 * 1024 && cart->prg_size() != 256 * 1024)))
+    return NULL;
+/* AURORA_VN43_GREEN_BERET_ONLY_END */
+/* AURORA_VN53_176_FK_ONLY_BEGIN */
+/* Only FK23C/FK-xxx variants 0 and 1. Legacy iNES dumps with
+   very large CHR-RAM banks cannot be mistaken for subtype zero. */
+if (mapperCode == 176 &&
+    (cart->submapper_code() > 1 ||
+     (cart->submapper_code() == 0 && cart->chr_size() == 0 &&
+      cart->prg_size() >= 0x400000L)))
+    return NULL;
+/* AURORA_VN53_176_FK_ONLY_END */
+/* AURORA_VN55_M268_SUBMAPPER_GUARD_BEGIN */
+  /* COOLBOY/MINDKIDS original PCB submappers 0/1 only. */
+  if (mapperCode == 268 && cart->submapper_code() > 1) return NULL;
+  /* AURORA_VN55_M268_SUBMAPPER_GUARD_END */
   switch ( mapperCode )
   {
     case   0: mapper = new Mapper000(); break;
@@ -428,12 +524,103 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
     case 207: mapper = new Mapper207(); break;
     case 210: mapper = new Mapper210(); break;
     case 216: mapper = new Mapper216(); break;
+    case  83: mapper = new Mapper083(); break;
+    case 114: mapper = new Mapper114(); break;
+    case 115: mapper = new Mapper115(); break;
+    case 116: mapper = new Mapper116(); break;
+    case 117: mapper = new Mapper117(); break;
+    case 121: mapper = new Mapper121(); break;
+    case 123: mapper = new Mapper123(); break;
+    case 189: mapper = new Mapper189(); break;
+    case 197: mapper = new Mapper197(); break;
+    case 215: mapper = new Mapper215(); break;
+    case 222: mapper = new Mapper222(); break;
+    case  14: mapper = new Mapper014(); break;
+    case  17: mapper = new Mapper017(); break;
+    case  81: mapper = new Mapper081(); break;
+    case 104: mapper = new Mapper104(); break;
+    case 120: mapper = new Mapper120(); break;
+    case 122: mapper = new Mapper122(); break;
+    case 161: mapper = new Mapper161(); break;
+    case 187: mapper = new Mapper187(); break;
+    case 90: mapper = new Mapper090(); break;
+    case 160: mapper = new Mapper160(); break;
+    case 37: mapper = new Mapper037(); break;
+    case 40: mapper = new Mapper040(); break;
+    case 91: mapper = new Mapper091(); break;
+    case 150: mapper = new Mapper150(); break;
     case 232: mapper = new Mapper232(); break;
     case 240: mapper = new Mapper240(); break;
     case 241: mapper = new Mapper241(); break;
     case 244: mapper = new Mapper244(); break;
     case 246: mapper = new Mapper246(); break;
     case 347: mapper = new Mapper347(); break;
+    case 12: mapper = new AuroraVn46Mapper012(); break;
+    case 29: mapper = new AuroraVn32Mapper029(); break;
+    case 36: mapper = new AuroraVn49Mapper036(); break;
+    case 38: mapper = new AuroraVn34Mapper038(); break;
+    case 41: mapper = new AuroraVn33Mapper041(); break;
+    case 42: mapper = new AuroraVn43Mapper042(); break;
+    case 43: mapper = new AuroraVn41Mapper043(); break;
+    case 47: mapper = new AuroraVn35Mapper047(); break;
+    case 50: mapper = new AuroraVn31Mapper050(); break;
+    case 74: mapper = new AuroraVn40Mapper074(); break;
+    case 107: mapper = new AuroraVn32Mapper107(); break;
+    case 108: mapper = new AuroraVn32Mapper108(); break;
+    case 112: mapper = new AuroraVn32Mapper112(); break;
+    case 132: mapper = new AuroraVn50Mapper132(); break;
+    case 133: mapper = new AuroraVn32Mapper133(); break;
+    case 137: mapper = new AuroraVn37Mapper137(); break;
+    case 138: mapper = new AuroraVn33Mapper138(); break;
+    case 139: mapper = new AuroraVn33Mapper139(); break;
+    case 141: mapper = new AuroraVn33Mapper141(); break;
+    case 142: mapper = new AuroraVn31Mapper142(); break;
+    case 143: mapper = new AuroraVn50Mapper143(); break;
+    case 144: mapper = new AuroraVn33Mapper144(); break;
+    case 145: mapper = new AuroraVn32Mapper145(); break;
+    case 146: mapper = new AuroraVn34Mapper146(); break;
+    case 147: mapper = new AuroraVn49Mapper147(); break;
+    case 148: mapper = new AuroraVn33Mapper148(); break;
+    case 149: mapper = new AuroraVn33Mapper149(); break;
+    case 166: mapper = new AuroraVn32Mapper166(); break;
+    case 167: mapper = new AuroraVn32Mapper167(); break;
+    case 173: mapper = new AuroraVn49Mapper173(); break;
+    case 176: mapper = new AuroraVn53Mapper176(); break;
+    case 177: mapper = new AuroraVn35Mapper177(); break;
+    case 178: mapper = new AuroraVn31Mapper178(); break;
+    case 183: mapper = new AuroraVn44Mapper183(); break;
+    case 192: mapper = new AuroraVn39Mapper192(); break;
+    case 194: mapper = new AuroraVn39Mapper194(); break;
+    case 195: mapper = new AuroraVn52Mapper195(); break;
+    case 196: mapper = new AuroraVn39Mapper196(); break;
+    case 208: mapper = new AuroraVn36Mapper208(); break;
+    case 223: mapper = new AuroraVn48Mapper223(); break;
+    case 224: mapper = new AuroraVn48Mapper224(); break;
+    case 227: mapper = new AuroraVn42Mapper227(); break;
+    case 228: mapper = new AuroraVn45Mapper228(); break;
+    case 238: mapper = new AuroraVn35Mapper238(); break;
+    case 242: mapper = new AuroraVn42Mapper242(); break;
+    case 243: mapper = new AuroraVn40Mapper243(); break;
+    case 245: mapper = new AuroraVn34Mapper245(); break;
+    case 258: mapper = new AuroraVn51Mapper258(); break;
+    case 263: mapper = new AuroraVn35Mapper263(); break;
+    case 268: mapper = new AuroraVn55Mapper268(); break;
+    case 302: mapper = new AuroraVn28Mapper302(); break;
+    case 303: mapper = new AuroraVn29Mapper303(); break;
+    case 304: mapper = new AuroraVn31Mapper304(); break;
+    case 305: mapper = new AuroraVn28Mapper305(); break;
+    case 306: mapper = new AuroraVn28Mapper306(); break;
+    case 309: mapper = new AuroraVn29Mapper309(); break;
+    case 312: mapper = new AuroraVn29Mapper312(); break;
+    case 346: mapper = new AuroraVn29Mapper346(); break;
+    case 415: mapper = new AuroraVn30Mapper415(); break;
+    case 525: mapper = new AuroraVn31Mapper525(); break;
+    case 538: mapper = new AuroraVn29Mapper538(); break;
+    case 549: mapper = new AuroraVn28Mapper549(); break;
+    case 551: mapper = new AuroraVn37Mapper551(); break;
+    case 553: mapper = new AuroraVn45Mapper553(); break;
+    case 554: mapper = new AuroraVn54Mapper554(); break;
+    case 557: mapper = new AuroraVn37Mapper557(); break;
     case 552: mapper = new Mapper552(); break;
     default: break;
   }

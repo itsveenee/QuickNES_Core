@@ -125,6 +125,8 @@ void Nes_Core::save_state( Nes_State_* out ) const
 		long bytes = impl_t::sram_window_size;
 		if ( cart && cart->battery_ram_size() > bytes )
 			bytes = cart->battery_ram_size();
+		if ( mapper && mapper->aurora_extra_sram_save_size() > bytes )
+			bytes = mapper->aurora_extra_sram_save_size();
 		if ( bytes > impl_t::sram_size )
 			bytes = impl_t::sram_size;
 		out->sram_size = bytes;

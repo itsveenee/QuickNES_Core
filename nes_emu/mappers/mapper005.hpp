@@ -59,8 +59,11 @@ struct mmc5_state_t
 	uint8_t mul_b;            // $5206
 	uint8_t irq_enabled;      // $5204
 	uint8_t irq_scanline;     // $5203
+	// AURORA_CURSED_FIVE_MMC5_AUDIT_VN91: extension AFTER legacy 30 bytes.
+	// Bits captured when a CHR bank register is written, not when $5130 changes.
+	uint8_t chr_bank_high[12];
 };
-BOOST_STATIC_ASSERT( sizeof (mmc5_state_t) == 30 );
+BOOST_STATIC_ASSERT( sizeof (mmc5_state_t) == 42 );
 
 // MMC5
 
@@ -96,7 +99,7 @@ public:
 		prg_banks [4] = 0x7f;   // $5117 (ROM, last bank)
 
 		for ( int i = 0; i < 12; i++ )
-			chr_banks [i] = 0;
+		{ chr_banks [i] = 0; chr_bank_high[i] = 0; }
 
 		memset( exram, 0, sizeof exram );
 	}
@@ -104,6 +107,15 @@ public:
 	virtual void read_state( mapper_state_t const& in )
 	{
 		Nes_Mapper::read_state( in );
+		// Legacy MMC5 states were exactly 30 bytes, with only a global
+		// $5130. Reconstruct the old effective mapping for compatibility.
+		if ( in.size <= 30 )
+		{
+			for ( int i = 0; i < 12; i++ )
+				chr_bank_high[i] = (uint8_t)((chr_mode == 3) ?
+					(chr_upper & 3) : ((chr_mode == 2) ? (chr_upper & 1) : 0));
+			sync_chr();
+		}
 		irq_time = no_irq;
 	}
 
@@ -189,24 +201,26 @@ public:
 		// scales the bank index by the bank size, and the MMC5 registers are
 		// already expressed in units of their bank size, so the register value
 		// (plus the upper bits shifted to that unit) is passed directly.
-		int up = chr_upper;
+		// $512x CHR bank upper bits are latched at WRITE time.
+		// $5130 changes later must not retroactively remap normal CHR.
+
 
 		switch ( chr_mode )
 		{
 		case 0: // 8K
-			set_chr_bank( 0x0000, bank_8k, chr_banks [7] | (up << 8) );
+			set_chr_bank( 0x0000, bank_8k, chr_banks [7] );
 			break;
 
 		case 1: // 4K
-			set_chr_bank( 0x0000, bank_4k, chr_banks [3] | (up << 8) );
-			set_chr_bank( 0x1000, bank_4k, chr_banks [7] | (up << 8) );
+			set_chr_bank( 0x0000, bank_4k, chr_banks [3] );
+			set_chr_bank( 0x1000, bank_4k, chr_banks [7] );
 			break;
 
 		case 2: // 2K
-			set_chr_bank( 0x0000, bank_2k, chr_banks [1] | (up << 8) );
-			set_chr_bank( 0x0800, bank_2k, chr_banks [3] | (up << 8) );
-			set_chr_bank( 0x1000, bank_2k, chr_banks [5] | (up << 8) );
-			set_chr_bank( 0x1800, bank_2k, chr_banks [7] | (up << 8) );
+			set_chr_bank( 0x0000, bank_2k, chr_banks [1] | (chr_bank_high[1] << 8) );
+			set_chr_bank( 0x0800, bank_2k, chr_banks [3] | (chr_bank_high[3] << 8) );
+			set_chr_bank( 0x1000, bank_2k, chr_banks [5] | (chr_bank_high[5] << 8) );
+			set_chr_bank( 0x1800, bank_2k, chr_banks [7] | (chr_bank_high[7] << 8) );
 			break;
 
 		case 3: // 1K
@@ -214,14 +228,14 @@ public:
 			// the original Castlevania 3 mapping: $5120-$5123 -> the low four
 			// 1 KiB slots, $5128-$512B -> the high four. (A per-fetch sprite/bg
 			// split is not possible in this PPU.)
-			set_chr_bank( 0x0000, bank_1k, chr_banks [0] | (up << 8) );
-			set_chr_bank( 0x0400, bank_1k, chr_banks [1] | (up << 8) );
-			set_chr_bank( 0x0800, bank_1k, chr_banks [2] | (up << 8) );
-			set_chr_bank( 0x0c00, bank_1k, chr_banks [3] | (up << 8) );
-			set_chr_bank( 0x1000, bank_1k, chr_banks [8]  | (up << 8) );
-			set_chr_bank( 0x1400, bank_1k, chr_banks [9]  | (up << 8) );
-			set_chr_bank( 0x1800, bank_1k, chr_banks [10] | (up << 8) );
-			set_chr_bank( 0x1c00, bank_1k, chr_banks [11] | (up << 8) );
+			set_chr_bank( 0x0000, bank_1k, chr_banks [0] | (chr_bank_high[0] << 8) );
+			set_chr_bank( 0x0400, bank_1k, chr_banks [1] | (chr_bank_high[1] << 8) );
+			set_chr_bank( 0x0800, bank_1k, chr_banks [2] | (chr_bank_high[2] << 8) );
+			set_chr_bank( 0x0c00, bank_1k, chr_banks [3] | (chr_bank_high[3] << 8) );
+			set_chr_bank( 0x1000, bank_1k, chr_banks [8]  | (chr_bank_high[8] << 8) );
+			set_chr_bank( 0x1400, bank_1k, chr_banks [9]  | (chr_bank_high[9] << 8) );
+			set_chr_bank( 0x1800, bank_1k, chr_banks [10] | (chr_bank_high[10] << 8) );
+			set_chr_bank( 0x1c00, bank_1k, chr_banks [11] | (chr_bank_high[11] << 8) );
 			break;
 		}
 	}
@@ -260,7 +274,7 @@ public:
 	virtual bool write_intercepted( nes_time_t time, nes_addr_t addr, int data )
 	{
 		unsigned reg = addr - regs_addr;
-		if ( reg < 0x30 )
+		if ( reg <= 0x30 )
 		{
 			switch ( reg )
 			{
@@ -282,15 +296,19 @@ public:
 			case 0x20: case 0x21: case 0x22: case 0x23:
 			case 0x24: case 0x25: case 0x26: case 0x27:
 				chr_banks [reg - 0x20] = data;
+				chr_bank_high[reg - 0x20] = (uint8_t)((chr_mode == 3) ?
+					(chr_upper & 3) : ((chr_mode == 2) ? (chr_upper & 1) : 0));
 				sync_chr();
 				break;
 
 			case 0x28: case 0x29: case 0x2a: case 0x2b:
 				chr_banks [8 + (reg - 0x28)] = data;
+				chr_bank_high[8 + (reg - 0x28)] = (uint8_t)((chr_mode == 3) ?
+					(chr_upper & 3) : ((chr_mode == 2) ? (chr_upper & 1) : 0));
 				sync_chr();
 				break;
 
-			case 0x30: chr_upper = data & 3; sync_chr(); sync_exgrafix(); break; // $5130
+			case 0x30: chr_upper = data & 3; sync_exgrafix(); break; // $5130
 			}
 		}
 		else if ( addr == 0x5203 ) // IRQ scanline compare

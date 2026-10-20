@@ -286,6 +286,12 @@ void Nes_Ppu_Impl::notify_vram_address( int addr )
 		vram_address_hook->vram_address_changed( (nes_addr_t) addr );
 }
 
+void Nes_Ppu_Impl::notify_vram_data_write( int addr )
+{
+    if ( vram_address_hook )
+        vram_address_hook->ppu_data_written( (nes_addr_t) addr );
+}
+
 void Nes_Ppu_Impl::set_chr_read_or( int mask )
 {
 	uint8_t value = (uint8_t) mask;

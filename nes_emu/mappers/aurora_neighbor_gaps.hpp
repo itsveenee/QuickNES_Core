@@ -1,0 +1,298 @@
+#pragma once
+/* AURORA_QUICKNES_NEIGHBOR_GAPS_V1_20261017
+   Supplemental iNES mapper implementations, separate from the earlier
+   experimental aurora_green_expansion.hpp. Hardware reference:
+   Mesen2 MMC3_14/187, FrontFareast, GoldenFive, Mapper120;
+   NESdev mapper 081; mapper 122/184 and mapper 161/001 equivalences.
+*/
+#include "Nes_Mapper.h"
+#include "mapper004.hpp"
+#include "mapper001.hpp"
+#include "mapper184.hpp"
+#include <string.h>
+
+/* Mapper 014: VRC/MMC3 dual mode, selected at $A131. */
+class Mapper014 : public Mapper004 {
+    struct ext_t { unsigned char chr[8], prg[2], mirror, board_mode; } ext;
+    void vrc_banks() {
+        set_prg_bank(0x8000, bank_8k, ext.prg[0]);
+        set_prg_bank(0xa000, bank_8k, ext.prg[1]);
+        set_prg_bank(0xc000, bank_8k, last_bank-1);
+        set_prg_bank(0xe000, bank_8k, last_bank);
+        for(int i=0;i<8;++i) set_chr_bank(i*0x400, bank_1k, ext.chr[i]);
+        if(ext.mirror & 1) mirror_horiz(); else mirror_vert();
+    }
+    void mmc3_chr() {
+        const int swap=(mode&0x80)?4:0;
+        const int outer0=(ext.board_mode&0x08)?0x100:0;
+        const int outer1=(ext.board_mode&0x20)?0x100:0;
+        const int outer2=(ext.board_mode&0x80)?0x100:0;
+        set_chr_bank((0^swap)*0x400,bank_1k,(banks[0]&~1)|outer0);
+        set_chr_bank((1^swap)*0x400,bank_1k,(banks[0]|1)|outer0);
+        set_chr_bank((2^swap)*0x400,bank_1k,(banks[1]&~1)|outer0);
+        set_chr_bank((3^swap)*0x400,bank_1k,(banks[1]|1)|outer0);
+        set_chr_bank((4^swap)*0x400,bank_1k,banks[2]|outer1);
+        set_chr_bank((5^swap)*0x400,bank_1k,banks[3]|outer1);
+        set_chr_bank((6^swap)*0x400,bank_1k,banks[4]|outer2);
+        set_chr_bank((7^swap)*0x400,bank_1k,banks[5]|outer2);
+    }
+public:
+    Mapper014() { memset(&ext,0,sizeof ext); }
+    void reset_state() { Mapper004::reset_state(); memset(&ext,0,sizeof ext); }
+    void apply_mapping() {
+        if(ext.board_mode&2) {
+            if(!(cart().mirroring()&8)) {if(mirror&1) mirror_horiz();else mirror_vert();}
+            if((sram_mode&63)==0x30) enable_sram(true);
+            else enable_sram((sram_mode&0x80)!=0,(sram_mode&0x40)!=0);
+            Mapper004::update_prg_banks(); mmc3_chr();
+        } else vrc_banks();
+        start_frame();
+    }
+    void save_state(mapper_state_t& out) {
+        Mapper004::save_state(out);
+        if(out.size>=0 && (unsigned)out.size+sizeof ext <= max_mapper_state_size) {
+            memcpy(out.data+out.size,&ext,sizeof ext);out.size+=(int)sizeof ext;
+        }
+    }
+    void load_state(mapper_state_t const& in) {
+        mapper_state_t base;
+        const unsigned bs=sizeof(mmc3_state_t);
+        base.size=in.size<(int)bs?in.size:(int)bs;
+        if(base.size<0) base.size=0;
+        memcpy(base.data,in.data,base.size);
+        memset(&ext,0,sizeof ext);
+        if(in.size>=(int)(bs+sizeof ext)) memcpy(&ext,in.data+bs,sizeof ext);
+        Mapper004::load_state(base);
+    }
+    bool ppu_ctrl_mask_irq_sensitive() const {return (ext.board_mode&2)!=0;}
+    void a12_clocked() { if(ext.board_mode&2) Mapper004::a12_clocked(); }
+    void run_until(nes_time_t t) {if(ext.board_mode&2) Mapper004::run_until(t);}
+    void end_frame(nes_time_t t) {if(ext.board_mode&2) Mapper004::end_frame(t);else start_frame();}
+    nes_time_t next_irq(nes_time_t t) {return (ext.board_mode&2)?Mapper004::next_irq(t):no_irq;}
+    void write(nes_time_t t,nes_addr_t a,int v) {
+        const bool was_mmc3 = (ext.board_mode & 2) != 0;
+        if(a==0xa131) ext.board_mode=(unsigned char)v;
+        if(ext.board_mode&2) {
+            Mapper004::write(t,a,v);
+            /* V-AUDIT-14: on VRC -> MMC3 entry, the base MMC3
+             * banking registers already hold valid state, but the
+             * VRC map still occupies the CPU window. Remap before
+             * the first post-switch $8000/$8001 write. */
+            if(a==0xa131 && !was_mmc3) {
+                Mapper004::update_prg_banks();
+                if(!(cart().mirroring()&8)) {
+                    if(mirror&1) mirror_horiz(); else mirror_vert();
+                }
+            }
+            if((a&0xe001)==0x8000 || (a&0xe001)==0x8001 || a==0xa131)
+                mmc3_chr();
+            return;
+        }
+        if(a>=0xb000 && a<=0xefff) {
+            const int n=((((a>>12)&7)-3)<<1)|((a>>1)&1);
+            if(n>=0 && n<8) {
+                if(a&1) ext.chr[n]=(unsigned char)((ext.chr[n]&15)|((v&15)<<4));
+                else ext.chr[n]=(unsigned char)((ext.chr[n]&0xf0)|(v&15));
+            }
+        } else {
+            switch(a&0xf003) {
+                case 0x8000:ext.prg[0]=(unsigned char)v;break;
+                case 0x9000:ext.mirror=(unsigned char)v;break;
+                case 0xa000:ext.prg[1]=(unsigned char)v;break;
+            }
+        }
+        vrc_banks();
+    }
+};
+
+/* Mapper 017: FFE, 16-bit CPU-clock incrementing IRQ. */
+class Mapper017 : public Nes_Mapper {
+    struct st_t {
+        unsigned char prg[4],chr[8],mirror,irq_enabled,irq_pending,prg_written_mask;
+        unsigned short irq_ctr;
+    } s;
+    nes_time_t cursor;
+    void apply_banks() {
+        for(int i=0;i<4;++i) set_prg_bank(0x8000+i*0x2000,bank_8k,
+            (s.prg_written_mask&(1u<<i))?s.prg[i]:(last_bank-3+i));
+        for(int i=0;i<8;++i) set_chr_bank(i*0x400,bank_1k,s.chr[i]);
+        if(s.mirror==1) mirror_horiz();
+        else if(s.mirror==2) mirror_single(0);
+        else if(s.mirror==3) mirror_single(1);
+        else mirror_vert();
+    }
+public:
+    Mapper017():cursor(0) {register_state(&s,sizeof s);}
+    void reset_state() {
+        memset(&s,0,sizeof s);
+        s.mirror = (cart().mirroring()&1)?0:1;
+        for(int i=0;i<4;++i)s.prg[i]=0; // initial PRG slots are last four physical 8K banks
+        for(int i=0;i<8;++i)s.chr[i]=(unsigned char)i;
+        cursor=0;
+    }
+    long chr_ram_size() const {return 0x8000;}
+    void apply_mapping() {apply_banks();intercept_writes(0x4200,0x400);cursor=0;}
+    void run_until(nes_time_t t) {
+        if(t<cursor) {cursor=t;return;}
+        if(s.irq_enabled && !s.irq_pending) {
+            unsigned long delta=(unsigned long)(t-cursor);
+            if(delta >= (unsigned long)(0x10000u-s.irq_ctr)) {
+                s.irq_ctr=0;s.irq_pending=1;s.irq_enabled=0;
+                irq_changed();
+            } else s.irq_ctr=(unsigned short)(s.irq_ctr+delta);
+        }
+        cursor=t;
+    }
+    void end_frame(nes_time_t t) {run_until(t);cursor=0;}
+    nes_time_t next_irq(nes_time_t t) {
+        run_until(t);
+        if(s.irq_pending) return t;
+        if(!s.irq_enabled) return no_irq;
+        return t + (nes_time_t)(0x10000u-s.irq_ctr);
+    }
+    bool write_intercepted(nes_time_t t,nes_addr_t a,int v) {
+        if(a<0x42fe || a>0x4517) return false;
+        run_until(t);
+        if(a==0x42fe) {s.mirror=(v&0x10)?3:2; if(s.mirror==3)mirror_single(1);else mirror_single(0);return true;}
+        if(a==0x42ff) {s.mirror=(v&0x10)?1:0;if(s.mirror)mirror_horiz();else mirror_vert();return true;}
+        if(a==0x4501) {s.irq_enabled=0;s.irq_pending=0;irq_changed();return true;}
+        if(a==0x4502) {s.irq_ctr=(unsigned short)((s.irq_ctr&0xff00)|(v&255));s.irq_pending=0;irq_changed();return true;}
+        if(a==0x4503) {s.irq_ctr=(unsigned short)((s.irq_ctr&255)|(v<<8));s.irq_enabled=1;s.irq_pending=0;irq_changed();return true;}
+        if(a>=0x4504 && a<=0x4507) {int i=a-0x4504;s.prg[i]=(unsigned char)v;s.prg_written_mask|=(unsigned char)(1u<<i);
+            set_prg_bank(0x8000+i*0x2000,bank_8k,v);return true;}
+        if(a>=0x4510 && a<=0x4517) {int i=a-0x4510;s.chr[i]=(unsigned char)v;set_chr_bank(i*0x400,bank_1k,v);return true;}
+        return false;
+    }
+    void write(nes_time_t,nes_addr_t,int) {}
+};
+
+/* Mapper 081: NTDEC N715021, address-latched PRG/CHR. */
+class Mapper081 : public Nes_Mapper {
+    unsigned char latched;
+public:
+    Mapper081() {register_state(&latched,1);}
+    void reset_state() {latched=0;}
+    void apply_mapping() {
+        set_prg_bank(0x8000,bank_16k,(latched>>2)&3);
+        set_prg_bank(0xc000,bank_16k,last_bank);
+        set_chr_bank(0x0000,bank_8k,latched&3);
+    }
+    void write(nes_time_t,nes_addr_t a,int) {latched=(unsigned char)(a&15);apply_mapping();}
+};
+
+/* Mapper 104: Codemasters Golden Five PRG/16K banking. */
+class Mapper104 : public Nes_Mapper {
+    unsigned char reg;
+public:
+    Mapper104() {register_state(&reg,1);}
+    void reset_state() {reg=0;}
+    void apply_mapping() {
+        set_prg_bank(0x8000,bank_16k,reg);
+        set_prg_bank(0xc000,bank_16k,(reg&0x70)|0x0f);
+    }
+    void write(nes_time_t,nes_addr_t a,int v) {
+        if(a>=0xc000) {reg=(unsigned char)((reg&0xf0)|(v&15));apply_mapping();}
+        else if(a<=0x9fff && (v&8)) {
+            reg=(unsigned char)((reg&15)|((v<<4)&0x70));apply_mapping();
+        }
+    }
+};
+
+/* Mapper 120: Whirlwind Manu LH15; switchable 8K PRG-ROM at $6000. */
+class Mapper120 : public Nes_Mapper {
+    unsigned char lower_prg;
+public:
+    Mapper120() {register_state(&lower_prg,1);}
+    void reset_state() {lower_prg=0;}
+    void apply_mapping() {
+        set_prg_bank(0x6000,bank_8k,lower_prg);
+        for(int i=0;i<4;++i)set_prg_bank(0x8000+i*0x2000,bank_8k,i+8);
+        set_chr_bank(0x0000,bank_8k,0);
+        intercept_writes(0x41ff,1);
+    }
+    bool write_intercepted(nes_time_t,nes_addr_t a,int v) {
+        if(a!=0x41ff)return false;
+        lower_prg=(unsigned char)v;set_prg_bank(0x6000,bank_8k,lower_prg);return true;
+    }
+    void write(nes_time_t,nes_addr_t,int) {}
+};
+
+/* Mapper 122: JY043 historical Sunsoft1-compatible iNES alias.
+   CHR 4K bank selectors are the only observed standard register behavior.
+   This does not claim to emulate undumped JY043 special hardware. */
+class Mapper122 : public Mapper184 { };
+
+/* Mapper 161: historical misidentification of MMC1 on Hanjuku Hero. */
+class Mapper161 : public Mapper001 { };
+
+/* Mapper 187: MMC3 bootleg with readback security and extended banking. */
+class Mapper187 : public Mapper004 {
+    unsigned char ex[2];
+    void chr() {
+        const int swap=(mode&0x80)?4:0;
+        for(int i=0;i<8;++i) {
+            int b=0;
+            if(i<2)b=(banks[0]&~1)|i;
+            else if(i<4)b=(banks[1]&~1)|(i&1);
+            else b=banks[i-2];
+            const int slot=i^swap;
+            if(i<4) b|=0x100;
+            set_chr_bank(slot*0x400,bank_1k,b);
+        }
+    }
+    void prg() {
+        if(!(ex[0]&0x80)) {
+            const int p=(mode&0x40)?1:0;
+            set_prg_bank(0x8000,bank_8k,p?last_bank-1:(banks[6]&0x3f));
+            set_prg_bank(0xa000,bank_8k,banks[7]&0x3f);
+            set_prg_bank(0xc000,bank_8k,p?(banks[6]&0x3f):last_bank-1);
+            set_prg_bank(0xe000,bank_8k,last_bank);
+        } else {
+            int b=ex[0]&31;
+            if(ex[0]&0x20) {
+                if(ex[0]&0x40) b&=~3;
+                else b=(b&~1)<<1;
+                for(int i=0;i<4;++i) set_prg_bank(0x8000+i*0x2000,bank_8k,b+i);
+            } else {
+                for(int i=0;i<4;++i)set_prg_bank(0x8000+i*0x2000,bank_8k,(b<<1)+(i&1));
+            }
+        }
+    }
+public:
+    Mapper187() {ex[0]=ex[1]=0;}
+    void reset_state() {Mapper004::reset_state();ex[0]=ex[1]=0;}
+    void apply_mapping() {
+        if(!(cart().mirroring()&8)) {if(mirror&1)mirror_horiz();else mirror_vert();}
+        if((sram_mode&0x3f)==0x30)enable_sram(true);
+        else enable_sram((sram_mode&0x80)!=0,(sram_mode&0x40)!=0);
+        chr();prg();start_frame();
+        intercept_writes(0x5000,0x2000);intercept_reads(0x5000,0x1000);
+    }
+    void save_state(mapper_state_t& out) {
+        Mapper004::save_state(out);
+        if(out.size>=0 && (unsigned)out.size+2<=max_mapper_state_size){memcpy(out.data+out.size,ex,2);out.size+=2;}
+    }
+    void load_state(mapper_state_t const& in) {
+        mapper_state_t base;const unsigned bs=sizeof(mmc3_state_t);
+        base.size=in.size<(int)bs?in.size:(int)bs;
+        if(base.size<0)base.size=0;
+        memcpy(base.data,in.data,base.size);
+        ex[0]=ex[1]=0;
+        if(in.size>=(int)bs+2)memcpy(ex,in.data+bs,2);
+        Mapper004::load_state(base);
+    }
+    int read(nes_time_t,nes_addr_t a) {
+        if(a>=0x5000 && a<0x6000) {static const int sec[4]={0x83,0x83,0x42,0};return sec[ex[1]&3];}
+        return -1;
+    }
+    bool write_intercepted(nes_time_t,nes_addr_t a,int v) {
+        if(a==0x5000 || a==0x6000){ex[0]=(unsigned char)v;prg();return true;}
+        return false;
+    }
+    void write(nes_time_t t,nes_addr_t a,int v) {
+        if(a==0x8000)ex[1]=1;
+        if(a==0x8001 && ex[1]!=1)return;
+        Mapper004::write(t,a,v);
+        if((a&0xe001)==0x8000 || (a&0xe001)==0x8001) {prg();chr();}
+    }
+};
