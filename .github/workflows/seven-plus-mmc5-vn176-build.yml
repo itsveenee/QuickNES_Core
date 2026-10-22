@@ -112,6 +112,17 @@ jobs:
             nes_emu/mappers/mapper005.hpp
             nes_emu/Nes_Ppu_Impl.h
             tests/experimental_vn177/
+      - name: Verify mapper 540 FDS expansion audio reaches libretro PCM
+        run: |
+          python3 tests/experimental_vn183/build_fds_roms.py
+          python3 tests/experimental_vn183/test_fds_pcm.py "$PWD/quicknes_libretro.so"
+      - name: Archive FDS output metrics and ROM provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN184_mapper540_FDS_PCM
+          path: |
+            tests/experimental_vn183/result_fds_pcm.json
+            tests/experimental_vn183/smoke/manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
