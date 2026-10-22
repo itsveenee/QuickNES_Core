@@ -1,0 +1,28 @@
+name: Experimental QuickNES native and PS2 build
+
+on:
+  push:
+    branches:
+      - 'experiment/cursed-five-vn121-219-249'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile the complete QuickNES libretro core (host)
+        run: make -f Makefile platform=unix clean all
+
+  build-ps2:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: apk add --no-cache build-base
+      - name: Compile the complete QuickNES libretro core (PS2)
+        run: make -f Makefile platform=ps2 clean all
