@@ -256,7 +256,11 @@ void Nes_Ppu_Impl::set_chr_ram_bank( int addr, int size, int bank )
 {
 	if ( !special_chr_mode || special_chr_ram_size <= 0 )
 	{
-		set_chr_bank( addr, size, bank );
+		/* vN204: caller supplies bank index in units of 'size'.
+		 * This path previously treated the index as a BYTE offset, making
+		 * 1 KiB bank 1 point to byte 1 instead of byte $0400.
+		 * Match the special CHR RAM path below and normal mapper semantics. */
+		set_chr_bank( addr, size, (long) bank * size );
 		return;
 	}
 	int count = (unsigned) size / chr_page_size;
