@@ -42,11 +42,14 @@ public:
         case 0:
             if(auto_enable_)enabled_=0;
             cpu_count_=(uint16_t)((cpu_count_&0xff00U)|data);
+            /* vN207: FCEUmm M359WriteIRQ $C000 sets IRQReload.
+             * Writing the high byte at $C001 only changes IRQLatch. */
+            reload_=1;
             irq_pending_=0;break;
         case 1:
             if(auto_enable_)enabled_=1;
             cpu_count_=(uint16_t)((cpu_count_&0x00ffU)|(data<<8));
-            reload_=1;latch_=(uint8_t)data;irq_pending_=0;break;
+            latch_=(uint8_t)data;irq_pending_=0;break;
         case 2:
             enabled_=(uint8_t)(data&1U);
             ppu_mode_=(uint8_t)((data>>1)&1U);

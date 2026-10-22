@@ -143,9 +143,14 @@ public:
            base!=0x5200U && base!=0x5300U)return false;
         const unsigned reg=(base>>8)&3U;
         unsigned v=value;
-        // Data lines D0/D1 physically crossed, with the documented 1MiB exception.
-        // $5300 writes do NOT swap D0/D1; only $5000-$5200 do.
-        if(reg!=3U && !(regs[3]&2U) && !(reg==2U && prg_rom_bytes==1024U*1024U))
+        /* vN207: the physical PCB ALWAYS crosses D0 and D1, including
+         * $5300. The optional second cross cancels the first only for
+         * registers 0-2 when regs[3] bit1 is set. On a 1 MiB ROM the
+         * register-$5200 exception leaves the first cross in place.
+         * Reference: FCEUmm src/boards/558.c::writeReg. */
+        const bool cancel_cross = (regs[3]&2U) &&
+            (reg <= ((prg_rom_bytes==1024U*1024U)?1U:2U));
+        if(!cancel_cross)
             v=(v&~3U)|((v>>1)&1U)|((v<<1)&2U);
         regs[reg]=(uint8_t)v;
         if(reg==2U && eeprom_present)
