@@ -1,0 +1,30 @@
+name: vN211 272 and 558 Physical PPU Bus Model Diagnostics
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn211-ppu-bus-model-tests']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise physical PA13/PA09 address sequences in isolated models
+        run: |
+          g++ -std=c++11 -O2 -I. tests/experimental_vn211/test_272_558_ppu_bus.cpp -o /tmp/vn211
+          /tmp/vn211
+      - name: Compile actual QuickNES Linux
+        run: make -f Makefile platform=unix clean all
+      - name: Execute mapper272 direct PAL IRQ and mapper540 CPU IRQ ROMs
+        run: |
+          python3 tests/experimental_vn163/build_irq_272_540_roms.py
+          python3 tests/experimental_vn163/test_irq_272_540.py "$PWD/quicknes_libretro.so"
+      - name: Regress mapper558 1bpp savestate and visual texture
+        run: |
+          python3 tests/experimental_vn193/build_558_visual.py
+          python3 tests/experimental_vn193/test_558_visual.py "$PWD/quicknes_libretro.so" --strict
+      - name: Regress mapper35/209 CPU IRQ after vN210 downcounter fix
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_irq_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYIRQ_*.nes --frames 40
