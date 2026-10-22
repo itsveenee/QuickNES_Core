@@ -1001,7 +1001,8 @@ void Nes_Core::reset( bool full_reset, bool erase_battery_ram )
 	ppu.reset( full_reset );
 	impl->apu.reset();
 	
-	mapper->reset();
+	if (full_reset) mapper->reset();
+	else mapper->soft_reset(); /* vN209 JYASIC hardware soft-reset distinction */
 	
 	cpu::r.pc = read_vector( 0xFFFC );
 	cpu::r.sp = 0xfd;

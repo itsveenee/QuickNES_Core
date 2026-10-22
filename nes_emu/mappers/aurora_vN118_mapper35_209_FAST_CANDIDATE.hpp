@@ -95,7 +95,17 @@ public:
         register_state(state_,sizeof state_);
     }
     virtual void reset_state() {
+        // New cartridge / hard reset: reconstruct JY ASIC register defaults.
         chip_.reset();cpu_cursor_=0;scanline_next_=scan_first;
+    }
+    virtual void soft_reset() {
+        /* vN209: real JYASIC soft reset changes only the external physical
+         * DIP setting (unsupported by policy), NOT the ASIC registers.
+         * FCEUmm src/boards/jyasic.c::JYASIC_reset. Preserve ALU,
+         * bank/IRQ/CHR state, then rebuild mappings after PPU reset. */
+        cpu_cursor_=0;
+        scanline_next_=scan_first;
+        apply_mapping();
     }
     virtual bool ppu_ctrl_mask_irq_sensitive() const {return true;}
     virtual bool aurora_observe_all_cpu_writes() const {return true;}

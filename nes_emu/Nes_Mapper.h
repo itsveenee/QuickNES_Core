@@ -31,6 +31,9 @@ public:
 	
 	// Reset mapper to power-up state.
 	virtual void reset();
+	/* vN209: allow selected ASICs to preserve hardware registers on a
+	 * soft reset. Defaults to legacy full mapper reset for every other board. */
+	virtual void soft_reset() { reset(); }
 	
 	// Save snapshot of mapper state. Default saves registered state.
 	virtual void save_state( mapper_state_t& );

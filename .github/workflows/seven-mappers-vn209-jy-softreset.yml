@@ -1,0 +1,23 @@
+name: vN209 JYASIC mapper35/209 soft reset fidelity
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn209-jy-softreset']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  soft-reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Linux QuickNES clean
+        run: make -f Makefile platform=unix clean all
+      - name: Generate original JYASIC soft-reset ROMs
+        run: python3 tests/experimental_vn209/build_jy_softreset_roms.py
+      - name: Execute positive and negative soft reset tests on actual QuickNES
+        run: python3 tests/experimental_vn209/test_jy_softreset.py "$PWD/quicknes_libretro.so"
+      - name: Regression of CHR banks, write protection and 558 mirrors
+        run: |
+          python3 tests/experimental_vn205/test_jy_chr_guard.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn208/build_558_mirrors.py
+          python3 tests/experimental_vn208/test_558_mirrors.py "$PWD/quicknes_libretro.so"
