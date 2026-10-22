@@ -1,0 +1,44 @@
+name: vN207 Mapper 540/558 Hardware Register Regression
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn207-register-accuracy']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  register-and-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test standalone 540 IRQ and 558 data-line models against board rules
+        run: |
+          g++ -std=c++11 -Wall -Wextra -I. tests/experimental_vn207/test_register_accuracy.cpp -o /tmp/aurora_vn207_registers
+          /tmp/aurora_vn207_registers
+      - name: Rebuild QuickNES (Linux)
+        run: make -f Makefile platform=unix clean all
+      - name: Test existing mapper 558 1bpp + 8KiB video savestates
+        run: |
+          python3 tests/experimental_vn193/build_558_visual.py
+          python3 tests/experimental_vn193/test_558_visual.py "$PWD/quicknes_libretro.so" --strict
+      - name: Test existing mapper 558 EEPROM coldboot and serial persistence
+        run: |
+          python3 tests/experimental_vn163/build_eeprom_558_rom.py
+          python3 tests/experimental_vn163/build_eeprom_coldboot_rom.py
+          python3 tests/experimental_vn163/test_eeprom_coldboot.py "$PWD/quicknes_libretro.so"
+      - name: Test mapper 540 FDS PCM and four volume/pitch cases
+        run: |
+          python3 tests/experimental_vn183/build_fds_roms.py
+          python3 tests/experimental_vn183/test_fds_pcm.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn183/test_fds_savestate.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn183/build_fds_matrix.py
+          python3 tests/experimental_vn183/test_fds_matrix.py "$PWD/quicknes_libretro.so"
+      - name: Test 219/249 full permutation and JY 35/209 CHR protections
+        run: |
+          python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn205/test_jy_chr_guard.py "$PWD/quicknes_libretro.so"
+      - name: Test 272/540 IRQ and seven-mapper native smoke ROMs
+        run: |
+          python3 tests/experimental_vn163/build_irq_272_540_roms.py
+          python3 tests/experimental_vn163/test_irq_272_540.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn163/build_seven_new_roms.py
+          python3 tests/experimental_vn163/test_new_roms.py "$PWD/quicknes_libretro.so" --strict
