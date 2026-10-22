@@ -46,17 +46,17 @@ jobs:
         run: |
           python3 tests/experimental_vn151/tools/build_jy_ppu_irq_roms.py
           python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYPPUIRQ_*.nes --frames 40
-      - name: Enforce mapper 35/209 PPU CHR-RAM write-protection and 2 negative ROMs
+      - name: Verify 8 CHR-RAM pages, CPU $2007 protection and 4 negative ROMs
         run: |
-          python3 tests/experimental_vn202/build_jy_chr_protect_roms.py
-          python3 tests/experimental_vn202/test_jy_chr_protect.py "$PWD/quicknes_libretro.so" --strict
+          python3 tests/experimental_vn203/build_jy_chr_protect_roms.py
+          python3 tests/experimental_vn203/test_jy_chr_protect.py "$PWD/quicknes_libretro.so" --strict
       - name: Archive JYASIC write protection results
         uses: actions/upload-artifact@v4
         with:
           name: quicknes_vN202_JY_CHR_ram_protection
           path: |
-            tests/experimental_vn202/result_jy_chr_protect.json
-            tests/experimental_vn202/smoke/manifest.json
+            tests/experimental_vn203/result_jy_chr_protect.json
+            tests/experimental_vn203/smoke/manifest.json
       - name: Upload JYASIC diagnostic manifests
         uses: actions/upload-artifact@v4
         with:
