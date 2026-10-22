@@ -38,6 +38,10 @@ jobs:
         run: |
           python3 tests/experimental_vn151/tools/build_jy_nt_roms.py
           python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYNT_*.nes --frames 40
+      - name: Reject 6 deliberately corrupted JYASIC PRG CHR and IRQ ROMs
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_negatives.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/negative/Aurora_JY*.nes --frames 40 --expect-color red
       - name: Upload JYASIC diagnostic manifests
         uses: actions/upload-artifact@v4
         with:
@@ -46,6 +50,7 @@ jobs:
             tests/experimental_vn151/smoke/jyasic_manifest.json
             tests/experimental_vn151/smoke/jyirq_manifest.json
             tests/experimental_vn151/smoke/jynt_manifest.json
+            tests/experimental_vn151/smoke/negative/manifest.json
       - name: Upload vN142 test results
         uses: actions/upload-artifact@v4
         with:
