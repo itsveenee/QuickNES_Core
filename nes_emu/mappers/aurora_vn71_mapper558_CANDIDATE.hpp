@@ -31,6 +31,11 @@ class Mapper558 : public Nes_Mapper {
 public:
     Mapper558():m_(false){memset(packed_,0,sizeof packed_);register_state(packed_,sizeof packed_);}
     virtual void reset_state(){m_.reset();}
+    virtual long aurora_extra_sram_save_size() const {
+        // Bank 0 contains 512-byte EEPROM backing; bank 1 contains 8 KiB
+        // volatile WRAM. Store both in savestates, but only EEPROM in .srm.
+        return cart().battery_ram_size()==512 ? 0x4000L : 0L;
+    }
     // vN95: Do not confuse CPU $2006/$2007 notifications with physical
     // PPU pattern/nametable fetches. This callback remains unconnected.
     virtual bool needs_vram_address_hook()const{return false;}
@@ -48,7 +53,19 @@ public:
             }
         }
     }
-    virtual void apply_mapping(){sync_prg();sync_chr();intercept_reads(0x5000,0x800);intercept_writes(0x5000,0x800);}
+    virtual void apply_mapping(){
+        const bool has93c66=cart().battery_ram_size()==512;
+        m_.configure_eeprom(has93c66);
+        // Non-battery WRAM must not overwrite the 512-byte EEPROM save area.
+        if(has93c66) set_sram_bank(1);
+        else set_sram_bank(0);
+        sync_prg();
+        if(has93c66) m_.bind_eeprom_storage(sram_data_ptr(),512);
+        else m_.unbind_eeprom_storage();
+        sync_chr();
+        intercept_reads(0x5000,0x800);
+        intercept_writes(0x5000,0x800);
+    }
     virtual void write(nes_time_t,nes_addr_t,int){}
     virtual bool write_intercepted(nes_time_t,nes_addr_t a,int v){
         if(!m_.write((unsigned)a,(unsigned)v,(unsigned)cart().prg_size()))return false;
