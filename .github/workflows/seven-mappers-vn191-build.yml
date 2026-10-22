@@ -132,6 +132,17 @@ jobs:
             tests/experimental_vn183/result_fds_matrix.json
             tests/experimental_vn183/smoke/matrix_manifest.json
             tests/experimental_vn183/smoke/manifest.json
+      - name: Run real mapper 558 CHR 8KiB and 1bpp pixel diagnostics
+        run: |
+          python3 tests/experimental_vn193/build_558_visual.py
+          python3 tests/experimental_vn193/test_558_visual.py "$PWD/quicknes_libretro.so" --strict
+      - name: Archive mapper 558 normal and 1bpp visual tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN194_mapper558_visual
+          path: |
+            tests/experimental_vn193/result_mapper558_vN193.json
+            tests/experimental_vn193/smoke/manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
