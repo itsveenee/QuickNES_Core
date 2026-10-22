@@ -104,6 +104,14 @@ jobs:
           path: |
             tests/experimental_vn177/result_mmc5_exram.json
             tests/experimental_vn177/smoke/manifest.json
+      - name: Archive exact modified MMC5 source and regression generators
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN182_exact_MMC5_source
+          path: |
+            nes_emu/mappers/mapper005.hpp
+            nes_emu/Nes_Ppu_Impl.h
+            tests/experimental_vn177/
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
