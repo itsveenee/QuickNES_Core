@@ -1,0 +1,30 @@
+name: vN215 Mapper558 EEPROM 93C66 Serial Boundaries
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn215-558-eeprom-boundaries']
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  eeprom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run serial protocol EWDS EWEN ERASE ERAL WRAL and 512-address tests
+        run: |
+          g++ -std=c++11 -O2 -I. tests/experimental_vn215/test_558_eeprom_serial.cpp -o /tmp/vn215_eeprom
+          /tmp/vn215_eeprom
+      - name: Compile Linux QuickNES
+        run: make -f Makefile platform=unix clean all
+      - name: Test actual mapper558 EEPROM persistence via CPU $5200 bus
+        run: |
+          python3 tests/experimental_vn163/build_eeprom_558_rom.py
+          python3 tests/experimental_vn163/build_eeprom_coldboot_rom.py
+          python3 tests/experimental_vn163/test_eeprom_coldboot.py "$PWD/quicknes_libretro.so"
+      - name: Verify 558 1bpp, register mirroring and NES2 209 volatile RAM
+        run: |
+          python3 tests/experimental_vn193/build_558_visual.py
+          python3 tests/experimental_vn193/test_558_visual.py "$PWD/quicknes_libretro.so" --strict
+          python3 tests/experimental_vn208/build_558_mirrors.py
+          python3 tests/experimental_vn208/test_558_mirrors.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn213/build_jy_prgram_roms.py
+          python3 tests/experimental_vn213/test_jy_prgram.py "$PWD/quicknes_libretro.so"
