@@ -59,6 +59,18 @@ static void check558() {
     m.write(0x5100,0x01,halfMiB);
     m.save(state);
     check(state[1]==0x02,"558 crossing $5100 when cancellation bit clear");
+    m.write(0x5400,0x03,halfMiB);
+    m.save(state);
+    check(state[0]==0x03,"558 $5400 mirrors $5000 bank/mode register");
+    m.write(0x5500,0x01,halfMiB);
+    m.save(state);
+    check(state[1]==0x02,"558 $5500 mirrors $5100 PRG register");
+    m.write(0x5600,0x04,halfMiB);
+    m.save(state);
+    check(state[2]==0x04,"558 $5600 mirrors $5200 serial register");
+    m.write(0x5700,0x01,halfMiB);
+    m.save(state);
+    check(state[3]==0x02,"558 $5700 mirrors crossed $5300 register");
 }
 int main(){
     check540();check558();

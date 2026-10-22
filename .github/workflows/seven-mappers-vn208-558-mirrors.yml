@@ -1,0 +1,31 @@
+name: vN208 Mapper558 Mirrored Register Hardware Regression
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn208-558-mirrors']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mirrors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Standalone stage register regressions for 540 and 558
+        run: |
+          g++ -std=c++11 -Wall -Wextra -I. tests/experimental_vn207/test_register_accuracy.cpp -o /tmp/vn208_stages
+          /tmp/vn208_stages
+      - name: Compile QuickNES Linux
+        run: make -f Makefile platform=unix clean all
+      - name: Test 558 mirrored CPU registers in actual QuickNES + negative
+        run: |
+          python3 tests/experimental_vn208/build_558_mirrors.py
+          python3 tests/experimental_vn208/test_558_mirrors.py "$PWD/quicknes_libretro.so"
+      - name: Retest 558 persistent EEPROM with corrected $5300 D0/D1
+        run: |
+          python3 tests/experimental_vn163/build_eeprom_558_rom.py
+          python3 tests/experimental_vn163/build_eeprom_coldboot_rom.py
+          python3 tests/experimental_vn163/test_eeprom_coldboot.py "$PWD/quicknes_libretro.so"
+      - name: Regress 558 normal CHR and 1bpp savestates
+        run: |
+          python3 tests/experimental_vn193/build_558_visual.py
+          python3 tests/experimental_vn193/test_558_visual.py "$PWD/quicknes_libretro.so" --strict

@@ -138,10 +138,10 @@ public:
     bool write(unsigned addr,unsigned value,unsigned prg_rom_bytes) {
         addr&=65535U;value&=255U;
         if(addr<0x5000U||addr>=0x5800U)return false;
-        const unsigned base=addr&0xff00U;
-        if(base!=0x5000U && base!=0x5100U &&
-           base!=0x5200U && base!=0x5300U)return false;
-        const unsigned reg=(base>>8)&3U;
+        /* vN208: $5000-$57FF is mirrored every $400 bytes; the ASIC
+         * decodes A8/A9 only (FCEUmm src/boards/558.c::writeReg).
+         * $5400/$5500/$5600/$5700 are aliases of registers 0/1/2/3. */
+        const unsigned reg=(addr>>8)&3U;
         unsigned v=value;
         /* vN207: the physical PCB ALWAYS crosses D0 and D1, including
          * $5300. The optional second cross cancels the first only for
