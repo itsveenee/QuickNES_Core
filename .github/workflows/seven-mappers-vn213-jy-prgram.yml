@@ -1,0 +1,27 @@
+name: vN213 NES2 Volatile PRGRAM For JY ASIC 35 209
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn213-jy-prgram-nes2']
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  jy-wram:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Linux QuickNES from sources
+        run: make -f Makefile platform=unix clean all
+      - name: Test mapper35 and mapper209 with and without NES2 volatile PRG-RAM
+        run: |
+          python3 tests/experimental_vn213/build_jy_prgram_roms.py
+          python3 tests/experimental_vn213/test_jy_prgram.py "$PWD/quicknes_libretro.so"
+      - name: Verify mapper35 and 209 JYASIC IRQ and CHR regression
+        run: |
+          python3 tests/experimental_vn205/test_jy_chr_guard.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn209/build_jy_softreset_roms.py
+          python3 tests/experimental_vn209/test_jy_softreset.py "$PWD/quicknes_libretro.so"
+      - name: Verify serial 558 and MMC3 family remain correct
+        run: |
+          python3 tests/experimental_vn208/build_558_mirrors.py
+          python3 tests/experimental_vn208/test_558_mirrors.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"

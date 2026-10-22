@@ -30,6 +30,8 @@ public:
 	// True if cartridge claims to have battery-backed memory
 	bool has_battery_ram() const;
 	long battery_ram_size() const;
+	/* vN213: NES 2.0 volatile PRG-RAM for JYASIC mapper 35/209. */
+	long volatile_prg_ram_size() const { return volatile_prg_ram_size_; }
 	
 	// Size of PRG data
 	long prg_size() const { return prg_size_; }
@@ -73,6 +75,7 @@ private:
 	long prg_size_;
 	long chr_size_;
 	long battery_ram_size_;
+	long volatile_prg_ram_size_;
 	unsigned mapper;
 	unsigned mapper_code_value;
 	unsigned submapper;

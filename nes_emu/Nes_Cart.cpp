@@ -46,6 +46,7 @@ void Nes_Cart::clear()
 	prg_size_ = 0;
 	chr_size_ = 0;
 	battery_ram_size_ = 0;
+	volatile_prg_ram_size_ = 0;
 	mapper = 0;
 	mapper_code_value = 0;
 	submapper = 0;
@@ -233,7 +234,19 @@ const char * Nes_Cart::load_ines( Auto_File_Reader in )
 		}
 	}
 
-	/* AURORA_VN165_NES2_M558_EEPROM: NES2 PRG-NVRAM field in byte 10
+	/* vN213: JYASIC mappers 35/209 can have *volatile* PRG RAM
+ * declared in NES2 byte 10 low nibble, without battery or NVRAM.
+ * Restrict this metadata path to these two boards. Do not force 8 KiB
+ * battery saves for volatile cartridges (FCEUmm JYASIC_init). */
+if ( nes2 && (mapper_code() == 35 || mapper_code() == 209) ) {
+    const unsigned volatile_shift = h.zero[2] & 0x0F;
+    volatile_prg_ram_size_ = AuroraNes2RamSize(volatile_shift);
+    const unsigned nv_shift = (h.zero[2] >> 4) & 0x0F;
+    const long nv_bytes = AuroraNes2RamSize(nv_shift);
+    battery_ram_size_ = nv_bytes;
+}
+
+/* AURORA_VN165_NES2_M558_EEPROM: NES2 PRG-NVRAM field in byte 10
  * encodes 512 bytes as 64<<3. Separate EEPROM from 8 KiB volatile WRAM.
  * Legacy / other mappers retain their previous battery-ram behavior. */
 	if (nes2 && mapper_code() == 558) {

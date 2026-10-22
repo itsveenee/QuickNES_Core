@@ -28,7 +28,8 @@ class AuroraJYMapper35_209 : public Nes_Mapper {
         if(m.wram_is_rom) {
             enable_sram(false);
             set_prg_bank(0x6000,bank_8k,(int)m.wram_rom_bank);
-        } else if(variant_==35 || cart().battery_ram_size()>0) {
+        } else if(variant_==35 || cart().battery_ram_size()>0 ||
+                cart().volatile_prg_ram_size()>0) {
             enable_sram(true);
         } else enable_sram(false);
     }
