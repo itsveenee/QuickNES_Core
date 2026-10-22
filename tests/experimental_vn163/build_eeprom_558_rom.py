@@ -7,8 +7,8 @@ from build_seven_new_roms import A,header,initialize,OUT
 
 def program():
  p=A(0x8000);initialize(p)
- # Disable scrambled D0/D1 wires for $5200 serial data.
- p.sta(2,0x5300)
+ # vN207: raw $01 crosses to ASIC bit1, cancelling crossing on $5200.
+ p.sta(1,0x5300)
  def bit(v):
   p.sta(4 | v,0x5200)
   p.sta(6 | v,0x5200)
