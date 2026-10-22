@@ -1,0 +1,53 @@
+name: Experimental QuickNES JYASIC 35/209 native + PS2
+
+on:
+  push:
+    branches:
+      - 'experiment/cursed-five-vn151-35-209'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile the complete QuickNES libretro core (host)
+        run: make -f Makefile platform=unix clean all
+      - name: Run actual QuickNES IRQ tests (20 ROMs)
+        run: |
+          python3 tests/experimental_vn142/tools/build_irq_roms.py
+          python3 tests/experimental_vn142/tools/run_irq_roms.py "$PWD/quicknes_libretro.so"
+      - name: Run real QuickNES extended banking + savestates (12 ROMs)
+        run: python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+      - name: Run NES 1.0 / NES 2.0 and multicart rejection tests (8 ROMs)
+        run: python3 tests/experimental_vn142/tools/test_ines_vs_nes2.py "$PWD/quicknes_libretro.so"
+      - name: Test mapper 249 with NES2 4 MiB high PRG bank (1 ROM)
+        run: |
+          python3 tests/experimental_vn142/tools/build_highbank_249.py
+          python3 tests/experimental_vn142/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn142/smoke/Aurora_HighBank_249_4MiB.nes --frames 35
+      - name: Upload vN142 test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN151_jyasic_cpu_ppu_diagnostics
+          path: |
+            tests/experimental_vn142/RESULTS_irq.json
+            tests/experimental_vn142/RESULTS_extended.json
+            tests/experimental_vn142/RESULTS_headers.json
+      - name: Upload Linux libretro core for direct ROM smoke tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_libretro_unix_vN151
+          path: quicknes_libretro.so
+
+  build-ps2:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: apk add --no-cache build-base
+      - name: Compile the complete QuickNES libretro core (PS2)
+        run: make -f Makefile platform=ps2 clean all
