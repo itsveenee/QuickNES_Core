@@ -129,7 +129,10 @@ protected: //friend class Nes_Ppu_Rendering; private:
 	bool chr_is_writable;
 	/* vN201: opt-in write protection for JYASIC CHR RAM. */
 	bool aurora_chr_ram_write_protected;
-	public: void aurora_set_chr_ram_write_protection(bool enabled) { aurora_chr_ram_write_protected=enabled; }
+	bool aurora_chr_ram_banked_writes;
+	public:
+	void aurora_set_chr_ram_write_protection(bool enabled) { aurora_chr_ram_write_protected = enabled; }
+	void aurora_set_chr_ram_banked_writes(bool enabled) { aurora_chr_ram_banked_writes = enabled; }
 	protected:
 	void update_tiles( int first_tile );
 	
@@ -270,7 +273,7 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 			if ( special_chr_mode )
 			{
 				int page = addr / chr_page_size;
-				if ( chr_page_writable [page] )
+				if ( chr_page_writable [page] && !aurora_chr_ram_write_protected )
 				{
 					long physical = chr_pages [page] + addr;
 					if ( (unsigned long) physical < (unsigned long) chr_size )
@@ -321,14 +324,26 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 	addr &= 0x3fff;
 	
 	// use index into modified_tiles [] since it's calculated sooner than addr is masked
-	if ( (unsigned) mod_index < 0x2000 / divisor && !aurora_chr_ram_write_protected )
+	if ( (unsigned) mod_index < 0x2000 / divisor )
 	{
-		// Avoid overhead of checking for read-only CHR; if that is the case,
-		// this modification will be ignored.
-		int mod = modified_tiles [mod_index];
-		chr_ram [addr] = data;
-		any_tiles_modified = true;
-		modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+		/* vN205: A blocked pattern write must not fall into nametable
+		 * handling. Only JYASIC CHR-RAM banks opt into physical remapping. */
+		if ( !aurora_chr_ram_write_protected )
+		{
+			long physical = addr;
+			if ( aurora_chr_ram_banked_writes )
+				physical = chr_pages [(unsigned) addr / chr_page_size] + addr;
+			if ( !aurora_chr_ram_banked_writes ||
+			     (unsigned long) physical < (unsigned long) chr_size )
+			{
+				unsigned const tile_group = (unsigned) physical / divisor;
+				int mod = modified_tiles [tile_group];
+				chr_ram [physical] = data;
+				any_tiles_modified = true;
+				modified_tiles [tile_group] =
+					mod | (1 << ((unsigned) physical / bytes_per_tile % 8));
+			}
+		}
 	}
 	else if ( addr < 0x3f00 )
 	{

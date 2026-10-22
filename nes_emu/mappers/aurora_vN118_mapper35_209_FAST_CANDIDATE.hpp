@@ -40,6 +40,7 @@ class AuroraJYMapper35_209 : public Nes_Mapper {
             else set_chr_ram_bank(dst,bank_1k,(int)m.chr1[i]);
         }
         /* vN201: block JYASIC CHR-RAM writes ($D002 bit 6). */
+        emu().ppu.aurora_set_chr_ram_banked_writes(!cart().chr_size());
         emu().ppu.aurora_set_chr_ram_write_protection(
             !cart().chr_size() && m.chr_write_protected);
     }
