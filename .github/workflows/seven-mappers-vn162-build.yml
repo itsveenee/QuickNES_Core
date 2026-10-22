@@ -75,6 +75,24 @@ jobs:
           path: |
             tests/experimental_vn163/results_163.json
             tests/experimental_vn163/smoke/manifest.json
+      - name: Validate mapper 558 93C66 EEPROM cold-boot persistence
+        run: |
+          python3 tests/experimental_vn163/build_eeprom_558_rom.py
+          python3 tests/experimental_vn163/build_eeprom_coldboot_rom.py
+          python3 tests/experimental_vn163/test_eeprom_coldboot.py "$PWD/quicknes_libretro.so"
+      - name: Verify real mapper 272 direct IRQ and mapper 540 CPU IRQ (4 ROMs)
+        run: |
+          python3 tests/experimental_vn163/build_irq_272_540_roms.py
+          python3 tests/experimental_vn163/test_irq_272_540.py "$PWD/quicknes_libretro.so"
+      - name: Archive EEPROM and IRQ result JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN171_558_EEPROM_272_540_IRQ
+          path: |
+            tests/experimental_vn163/result_eeprom_coldboot.json
+            tests/experimental_vn163/result_irq_272_540.json
+            tests/experimental_vn163/smoke/eeprom_manifest.json
+            tests/experimental_vn163/smoke/irq_272_540_manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
