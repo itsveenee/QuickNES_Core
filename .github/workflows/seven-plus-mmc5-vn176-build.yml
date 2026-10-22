@@ -93,9 +93,9 @@ jobs:
             tests/experimental_vn163/result_irq_272_540.json
             tests/experimental_vn163/smoke/eeprom_manifest.json
             tests/experimental_vn163/smoke/irq_272_540_manifest.json
-      - name: Run eight MMC5 ExRAM CPU, PPU nametable and in-frame diagnostics
+      - name: Run ten MMC5 ExRAM CPU, PPU quadrants and render-phase diagnostics
         run: |
-          python3 tests/experimental_vn177/create_mmc5_vN180.py
+          python3 tests/experimental_vn177/create_mmc5_vN181.py
           python3 tests/experimental_vn177/test_mmc5_vN177.py "$PWD/quicknes_libretro.so" --strict
       - name: Store MMC5 ExRAM test results
         uses: actions/upload-artifact@v4
