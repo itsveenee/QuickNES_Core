@@ -270,7 +270,7 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 			if ( special_chr_mode )
 			{
 				int page = addr / chr_page_size;
-				if ( chr_page_writable [page] )
+				if ( chr_page_writable [page] && !aurora_chr_ram_write_protected )
 				{
 					long physical = chr_pages [page] + addr;
 					if ( (unsigned long) physical < (unsigned long) chr_size )
@@ -321,14 +321,18 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 	addr &= 0x3fff;
 	
 	// use index into modified_tiles [] since it's calculated sooner than addr is masked
-	if ( (unsigned) mod_index < 0x2000 / divisor && !aurora_chr_ram_write_protected )
+	if ( (unsigned) mod_index < 0x2000 / divisor )
 	{
-		// Avoid overhead of checking for read-only CHR; if that is the case,
-		// this modification will be ignored.
-		int mod = modified_tiles [mod_index];
-		chr_ram [addr] = data;
-		any_tiles_modified = true;
-		modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+		/* vN202: protected CHR writes must be discarded, not routed
+		 * into the nametable branch below. */
+		if ( !aurora_chr_ram_write_protected )
+		{
+			// Preserve normal CHR-RAM dirty-tile tracking.
+			int mod = modified_tiles [mod_index];
+			chr_ram [addr] = data;
+			any_tiles_modified = true;
+			modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+		}
 	}
 	else if ( addr < 0x3f00 )
 	{
