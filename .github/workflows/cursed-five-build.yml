@@ -16,6 +16,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile the complete QuickNES libretro core (host)
         run: make -f Makefile platform=unix clean all
+      - name: Run actual QuickNES IRQ tests (20 ROMs)
+        run: |
+          python3 tests/experimental_vn142/tools/build_irq_roms.py
+          python3 tests/experimental_vn142/tools/run_irq_roms.py "$PWD/quicknes_libretro.so"
+      - name: Run real QuickNES extended banking + savestates (12 ROMs)
+        run: python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+      - name: Upload vN142 test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN142_cpu_ppu_diagnostics
+          path: |
+            tests/experimental_vn142/RESULTS_irq.json
+            tests/experimental_vn142/RESULTS_extended.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
