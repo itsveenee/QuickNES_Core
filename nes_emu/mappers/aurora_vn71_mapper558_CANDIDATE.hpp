@@ -17,15 +17,26 @@ class Mapper558 : public Nes_Mapper {
         enable_sram(true);
     }
     void sync_chr(){
-        AuroraMapper558Stage::Mapping z;m_.map(z);
-        if(cart().chr_size()) {
-            set_chr_bank(0x0000,bank_4k,(int)z.chr4[0]);
-            set_chr_bank(0x1000,bank_4k,(int)z.chr4[1]);
-        } else {
-            // Basic CHR-RAM path only. Does NOT implement PA0->A3 and PA9->A12
-            // remapping in 1bpp video mode; block stable registration.
-            set_chr_ram_bank(0x0000,bank_4k,(int)z.chr4[0]);
-            set_chr_ram_bank(0x1000,bank_4k,(int)z.chr4[1]);
+        /* vN191: normal YC-03-09 uses a whole 8 KiB CHR bank. The old
+         * implementation erroneously mirrored its first 4 KiB into both
+         * halves, breaking ordinary two-plane backgrounds.
+         * 1bpp remains an experimental visualization: map distinct 4 KiB
+         * halves and let the verified PPU renderer derive plane from NT A0.
+         * Accurate PA13/PA09 fetch notifications are still required for
+         * CPU $2007 latch behavior and the complete cartridge semantics. */
+        const bool mode=m_.video_1bpp_enabled();
+        emu().ppu.set_pec586_1bpp_mode(mode);
+        if(!mode){
+            if(cart().chr_size())set_chr_bank(0x0000,bank_8k,0);
+            else set_chr_ram_bank(0x0000,bank_8k,0);
+            return;
+        }
+        if(cart().chr_size()){
+            set_chr_bank(0x0000,bank_4k,0);
+            set_chr_bank(0x1000,bank_4k,1);
+        }else{
+            set_chr_ram_bank(0x0000,bank_4k,0);
+            set_chr_ram_bank(0x1000,bank_4k,1);
         }
     }
 public:

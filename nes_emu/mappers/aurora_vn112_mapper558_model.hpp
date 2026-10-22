@@ -179,6 +179,7 @@ public:
             chip.reset_protocol();
         }
     }
+    bool video_1bpp_enabled() const {return (regs[0]&0x80U)!=0;}
     bool has_eeprom() const {return eeprom_present!=0;}
     bool bind_eeprom_storage(uint8_t *backing, unsigned length) {
         return chip.bind_persistence(backing,length);
