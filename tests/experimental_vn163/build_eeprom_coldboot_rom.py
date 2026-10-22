@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""vN167: coldboot EEPROM READ-only cartridge, same NES2 header as vN166."""
+"""vN207: coldboot EEPROM readback, with physical $5300 D0/D1 swap."""
 import sys,json,hashlib
 from pathlib import Path
 ROOT=Path(__file__).parent;sys.path.insert(0,str(ROOT))
 from build_seven_new_roms import A,header,initialize,OUT
-p=A(0x8000);initialize(p);p.sta(2,0x5300)
+p=A(0x8000);initialize(p);p.sta(1,0x5300)
 def bit(v):p.sta(4|v,0x5200);p.sta(6|v,0x5200)
 p.sta(0,0x5200);bit(1);bit(1);bit(0)
 for i in range(8,-1,-1):bit((5>>i)&1)
