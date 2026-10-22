@@ -28,6 +28,7 @@ class Core:
         lib.retro_load_game.argtypes=[C.POINTER(Game)];lib.retro_load_game.restype=C.c_bool
         lib.retro_serialize_size.restype=C.c_size_t
         lib.retro_serialize.argtypes=[C.c_void_p,C.c_size_t];lib.retro_serialize.restype=C.c_bool
+        lib.retro_reset.argtypes=[]
         lib.retro_unserialize.argtypes=[C.c_void_p,C.c_size_t];lib.retro_unserialize.restype=C.c_bool
         lib.retro_init()
     def run(self,rom,frames=12):
@@ -52,6 +53,10 @@ class Core:
             if not self.lib.retro_unserialize(saved,n):raise RuntimeError('unserialize failed')
             for _ in range(2):self.lib.retro_run()
             if self.videos[-1]!=before:raise RuntimeError('Video differs after restoring mapper558 savestate')
+            if '1bpp_visual' in rom.name:
+                self.lib.retro_reset()
+                for _ in range(frames):self.lib.retro_run()
+                if self.videos[-1]!=before:raise RuntimeError('1bpp image changed after hardware reset')
             return {'samples':self.videos[-1],'pal':[ppu[12],ppu[13]],'pc':int.from_bytes(cpu[:2],'little'),'state_ok':True}
         finally:self.lib.retro_unload_game()
     def close(self):self.lib.retro_deinit()
@@ -62,11 +67,13 @@ def main():
         for name in ('normal_pass','normal_negative','normal_visual','1bpp_visual'):
             result=core.run(ROOT/'smoke'/('Mapper558_'+name+'.nes'))
             out[name]=result;print(name,result,flush=True)
+        out['normal_after_1bpp']=core.run(ROOT/'smoke'/'Mapper558_normal_visual.nes')
+        print('normal_after_1bpp',out['normal_after_1bpp'],flush=True)
     finally:core.close()
     # The negative ROM must take its red-failure path (PC differs).
     p=out['normal_pass'];n=out['normal_negative'];a=out['1bpp_visual'];b=out['normal_visual']
     normal_ok=(p['pc']!=n['pc']) and (p['pal']!=n['pal'])
-    visual_ok=(a['samples']!=b['samples'] and len(set(a['samples'][:4]))>1)
+    visual_ok=(a['samples']!=b['samples'] and len(set(a['samples'][:4]))>1) and out['normal_after_1bpp']['samples']==b['samples']
     print('NORMAL BANK8K/NO ALIAS:',normal_ok,'1BPP RENDER CONTRAST:',visual_ok)
     obj={'normal_bank_ok':normal_ok,'special_video_ok':visual_ok,'runs':out}
     (ROOT/'result_mapper558_vN193.json').write_text(json.dumps(obj,indent=2)+'\n')
