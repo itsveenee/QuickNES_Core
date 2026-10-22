@@ -224,7 +224,7 @@ inline void Nes_Ppu_Impl::set_nt_banks( int bank0, int bank1, int bank2, int ban
 
 inline void Nes_Ppu_Impl::set_nt_bank_external(int page,uint8_t* bytes,bool writable)
 {
-	assert((unsigned)page < 4 && bytes);
+	if ((unsigned)page >= 4 || !bytes) return;
 	nt_banks[page] = bytes;
 	nt_writable[page] = writable;
 	special_nt_mode = true;
