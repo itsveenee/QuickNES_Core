@@ -35,6 +35,7 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	special_chr_ram_offset = 0;
 	special_chr_ram_size = 0;
 	special_chr_mode = false;
+	aurora_chr_ram_write_protected = false;
 	chr_read_or_mask = 0;
 	nt_extra_ram_used = false;
 	special_nt_mode = false;
@@ -93,6 +94,7 @@ const char *Nes_Ppu_Impl::open_chr( uint8_t const* new_chr, long chr_data_size )
 	chr_data = new_chr;
 	chr_size = chr_data_size;
 	chr_is_writable = false;
+	aurora_chr_ram_write_protected = false;
 	
 	if ( chr_data_size == 0 )
 	{
@@ -175,6 +177,7 @@ void Nes_Ppu_Impl::close_chr()
 	special_chr_ram_offset = 0;
 	special_chr_ram_size = 0;
 	special_chr_mode = false;
+	aurora_chr_ram_write_protected = false;
 	chr_read_or_mask = 0;
 	special_nt_mode = false;
 	pec586_1bpp_mode = false;

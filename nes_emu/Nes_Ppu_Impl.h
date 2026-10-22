@@ -127,6 +127,10 @@ protected: //friend class Nes_Ppu_Rendering; private:
 	
 	bool any_tiles_modified;
 	bool chr_is_writable;
+	/* vN201: opt-in write protection for JYASIC CHR RAM. */
+	bool aurora_chr_ram_write_protected;
+	public: void aurora_set_chr_ram_write_protection(bool enabled) { aurora_chr_ram_write_protected=enabled; }
+	protected:
 	void update_tiles( int first_tile );
 	
 	typedef uint32_t cache_t;
@@ -281,7 +285,7 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 				/* Mapper 68: keep the legacy CHR-ROM shadow-write behavior. */
 				unsigned const divisor = bytes_per_tile * 8;
 				int mod_index = (unsigned) addr / divisor % (0x4000 / divisor);
-				if ( (unsigned) mod_index < 0x2000 / divisor )
+				if ( (unsigned) mod_index < 0x2000 / divisor && !aurora_chr_ram_write_protected )
 				{
 					int mod = modified_tiles [mod_index];
 					chr_ram [addr] = data;
@@ -317,7 +321,7 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 	addr &= 0x3fff;
 	
 	// use index into modified_tiles [] since it's calculated sooner than addr is masked
-	if ( (unsigned) mod_index < 0x2000 / divisor )
+	if ( (unsigned) mod_index < 0x2000 / divisor && !aurora_chr_ram_write_protected )
 	{
 		// Avoid overhead of checking for read-only CHR; if that is the case,
 		// this modification will be ignored.
