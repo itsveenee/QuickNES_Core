@@ -30,7 +30,7 @@ class Mapper558 : public Nes_Mapper {
          * switching the physical 1bpp wiring. Do nothing for repeated
          * writes that leave the mode unchanged. */
         if(mode!=visual_1bpp_mode_) {
-            emu().ppu.render_until(emu().clock());
+            emu().ppu.render_until(mapper_clock());
             emu().ppu.set_pec586_1bpp_mode(mode);
             visual_1bpp_mode_=mode;
         }
