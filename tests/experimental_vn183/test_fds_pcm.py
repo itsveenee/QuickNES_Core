@@ -32,6 +32,7 @@ def capture(core, mode):
     for i,n in enumerate(samples):C.cast(pcm,C.POINTER(C.c_int16))[i]=n
     return {'frames':35,'sample_count':len(samples),'nonzero':sum(v!=0 for v in samples),
             'max_abs':max([abs(v) for v in samples],default=0),
+            'clipped':sum(v==32767 or v==-32768 for v in samples),
             'energy':sum(v*v for v in samples),
             'pcm_sha256':hashlib.sha256(pcm.raw).hexdigest()}
 
@@ -50,7 +51,8 @@ def main():
       metrics['active']['sample_count']>30000 and
       metrics['active']['pcm_sha256']!=metrics['silent']['pcm_sha256'] and
       metrics['active']['energy']>metrics['silent']['energy']+10000 and
-      metrics['active']['max_abs']>metrics['silent']['max_abs'])
+      metrics['active']['max_abs']>metrics['silent']['max_abs'] and
+      metrics['active']['max_abs']<32000 and metrics['active']['clipped']==0)
     (HERE/'result_fds_pcm.json').write_text(json.dumps(metrics,indent=2)+'\n')
     print(json.dumps(metrics,indent=2))
     if not metrics['pass']:

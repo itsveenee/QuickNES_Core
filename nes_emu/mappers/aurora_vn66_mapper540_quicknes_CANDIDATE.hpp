@@ -91,7 +91,8 @@ public:
         /* Blip_Synth::volume() expects Q30 FIXED POINT, not a double.
          * The old 1.0/256.0 implicitly converted to integer zero, muting FDS.
          * Preserve the intended gain without changing clock or sample rates. */
-        synth_.volume(BLIP_Q30_ONE / 256);
+        /* Q30 gain calibrated against decoded 16-bit PCM: avoid clipping. */
+        synth_.volume(BLIP_Q30_ONE / (256 * 256));
     }
     // PPUCTRL and PPUMASK changes already flush mapper time via QuickNES
     // when this is true; no global renderer alteration is required.
