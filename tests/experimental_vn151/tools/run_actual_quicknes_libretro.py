@@ -136,7 +136,7 @@ def main():
             if not (bg0==expected and bg1==expected):
                 raise RuntimeError('QuickNES palette does not match %s: %s got $%02X/$%02X'%
                     (args.expect_color,rom.name,bg0,bg1))
-            expected_mapr=50 if any(tag in rom.name for tag in ('JYASIC_35','JYASIC_209','JYIRQ_35','JYIRQ_209')) else 18 if '_219' in rom.name else 15 if '4_standard' in rom.name else 16
+            expected_mapr=50 if any(tag in rom.name for tag in ('JYASIC_35','JYASIC_209','JYIRQ_35','JYIRQ_209','JYNT_35','JYNT_209')) else 18 if '_219' in rom.name else 15 if '4_standard' in rom.name else 16
             if mapr_size!=expected_mapr:
                 raise RuntimeError('Unexpected mapper state bytes: %s: %d instead of %d'%
                     (rom.name,mapr_size,expected_mapr))
