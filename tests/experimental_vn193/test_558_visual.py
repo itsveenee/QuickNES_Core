@@ -28,6 +28,7 @@ class Core:
         lib.retro_load_game.argtypes=[C.POINTER(Game)];lib.retro_load_game.restype=C.c_bool
         lib.retro_serialize_size.restype=C.c_size_t
         lib.retro_serialize.argtypes=[C.c_void_p,C.c_size_t];lib.retro_serialize.restype=C.c_bool
+        lib.retro_unserialize.argtypes=[C.c_void_p,C.c_size_t];lib.retro_unserialize.restype=C.c_bool
         lib.retro_init()
     def run(self,rom,frames=12):
         data=rom.read_bytes();blob=C.create_string_buffer(data);info=Game(str(rom).encode(),C.cast(blob,C.c_void_p),len(data),None)
@@ -44,7 +45,14 @@ class Core:
                 if i<0:raise RuntimeError('missing '+repr(key))
                 k=int.from_bytes(state[i+4:i+8],'little');return state[i+8:i+8+k]
             ppu=tag(b'PPUR');cpu=tag(b'CPUR');
-            return {'samples':self.videos[-1],'pal':[ppu[12],ppu[13]],'pc':int.from_bytes(cpu[:2],'little')}
+            # vN196: video output must reproduce after real libretro savestate restore.
+            for _ in range(2):self.lib.retro_run()
+            before=self.videos[-1]
+            saved=C.create_string_buffer(state)
+            if not self.lib.retro_unserialize(saved,n):raise RuntimeError('unserialize failed')
+            for _ in range(2):self.lib.retro_run()
+            if self.videos[-1]!=before:raise RuntimeError('Video differs after restoring mapper558 savestate')
+            return {'samples':self.videos[-1],'pal':[ppu[12],ppu[13]],'pc':int.from_bytes(cpu[:2],'little'),'state_ok':True}
         finally:self.lib.retro_unload_game()
     def close(self):self.lib.retro_deinit()
 def main():
