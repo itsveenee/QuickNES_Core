@@ -22,13 +22,16 @@ jobs:
           python3 tests/experimental_vn142/tools/run_irq_roms.py "$PWD/quicknes_libretro.so"
       - name: Run real QuickNES extended banking + savestates (12 ROMs)
         run: python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+      - name: Run NES 1.0 / NES 2.0 and multicart rejection tests (8 ROMs)
+        run: python3 tests/experimental_vn142/tools/test_ines_vs_nes2.py "$PWD/quicknes_libretro.so"
       - name: Upload vN142 test results
         uses: actions/upload-artifact@v4
         with:
-          name: quicknes_vN142_cpu_ppu_diagnostics
+          name: quicknes_vN144_cpu_ppu_headers_diagnostics
           path: |
             tests/experimental_vn142/RESULTS_irq.json
             tests/experimental_vn142/RESULTS_extended.json
+            tests/experimental_vn142/RESULTS_headers.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
