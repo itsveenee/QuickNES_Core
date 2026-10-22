@@ -11,7 +11,7 @@ class AuroraVn107Mapper249 : public Mapper004 {
     uint8_t scrambling_;
     bool nes2_canonical_;
     static unsigned reorder(unsigned value, const uint8_t* src, const uint8_t* dst, unsigned n) {
-        unsigned bank = value;
+        unsigned bank = value & 0xffu; // Waixing T9552 permutes only eight input bank bits (FCEUmm); do not retain bit 8+.
         for (unsigned i=0;i<n;++i) bank &= ~(1u << dst[i]);
         for (unsigned i=0;i<n;++i) if (value & (1u << src[i])) bank |= (1u << dst[i]);
         return bank;
