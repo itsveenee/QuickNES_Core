@@ -1,0 +1,149 @@
+name: Experimental Seven Mappers plus mapper 558 CHR video fixes
+
+on:
+  push:
+    branches:
+      - 'experiment/seven-mappers-vn191-558-video'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile the complete QuickNES libretro core (host)
+        run: make -f Makefile platform=unix clean all
+      - name: Run actual QuickNES IRQ tests (20 ROMs)
+        run: |
+          python3 tests/experimental_vn142/tools/build_irq_roms.py
+          python3 tests/experimental_vn142/tools/run_irq_roms.py "$PWD/quicknes_libretro.so"
+      - name: Run real QuickNES extended banking + savestates (12 ROMs)
+        run: python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+      - name: Run NES 1.0 / NES 2.0 and multicart rejection tests (8 ROMs)
+        run: python3 tests/experimental_vn142/tools/test_ines_vs_nes2.py "$PWD/quicknes_libretro.so"
+      - name: Test mapper 249 with NES2 4 MiB high PRG bank (1 ROM)
+        run: |
+          python3 tests/experimental_vn142/tools/build_highbank_249.py
+          python3 tests/experimental_vn142/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn142/smoke/Aurora_HighBank_249_4MiB.nes --frames 35
+      - name: Generate and run 12 real JYASIC mapper 35/209 smoke ROMs
+        run: |
+          python3 tests/experimental_vn151/tools/build_jyasic_roms.py
+          python3 tests/experimental_vn151/tools/build_jy_irq_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYASIC_35_PRG_CHR_ALU.nes tests/experimental_vn151/smoke/Aurora_JYASIC_209_PRG_CHR_ALU.nes --frames 40
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYIRQ_*.nes --frames 40
+      - name: Verify JYASIC nametable-to-CHR-ROM and CIRAM (2 ROMs)
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_nt_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYNT_*.nes --frames 40
+      - name: Reject 6 deliberately corrupted JYASIC PRG CHR and IRQ ROMs
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_negatives.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/negative/Aurora_JY*.nes --frames 40 --expect-color red
+      - name: Test JYASIC FCEUmm-compatible PPU A12 scanline IRQ and disabled state (4 ROMs)
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_ppu_irq_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYPPUIRQ_*.nes --frames 40
+      - name: Upload JYASIC diagnostic manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN154_jyasic_smoke_manifests
+          path: |
+            tests/experimental_vn151/smoke/jyasic_manifest.json
+            tests/experimental_vn151/smoke/jyirq_manifest.json
+            tests/experimental_vn151/smoke/jynt_manifest.json
+            tests/experimental_vn151/smoke/negative/manifest.json
+            tests/experimental_vn151/smoke/jyppu_manifest.json
+      - name: Upload vN142 test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN162_seven_mappers_tests
+          path: |
+            tests/experimental_vn142/RESULTS_irq.json
+            tests/experimental_vn142/RESULTS_extended.json
+            tests/experimental_vn142/RESULTS_headers.json
+      - name: Verify native mapper 272 540 and 558 PRG CHR and register behavior (6 ROMs)
+        run: |
+          python3 tests/experimental_vn163/build_seven_new_roms.py
+          python3 tests/experimental_vn163/test_new_roms.py "$PWD/quicknes_libretro.so" --strict
+      - name: Upload new mapper smoke results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN164_mapper272_540_558_smoke
+          path: |
+            tests/experimental_vn163/results_163.json
+            tests/experimental_vn163/smoke/manifest.json
+      - name: Validate mapper 558 93C66 EEPROM cold-boot persistence
+        run: |
+          python3 tests/experimental_vn163/build_eeprom_558_rom.py
+          python3 tests/experimental_vn163/build_eeprom_coldboot_rom.py
+          python3 tests/experimental_vn163/test_eeprom_coldboot.py "$PWD/quicknes_libretro.so"
+      - name: Verify real mapper 272 direct IRQ and mapper 540 CPU IRQ (4 ROMs)
+        run: |
+          python3 tests/experimental_vn163/build_irq_272_540_roms.py
+          python3 tests/experimental_vn163/test_irq_272_540.py "$PWD/quicknes_libretro.so"
+      - name: Archive EEPROM and IRQ result JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN171_558_EEPROM_272_540_IRQ
+          path: |
+            tests/experimental_vn163/result_eeprom_coldboot.json
+            tests/experimental_vn163/result_irq_272_540.json
+            tests/experimental_vn163/smoke/eeprom_manifest.json
+            tests/experimental_vn163/smoke/irq_272_540_manifest.json
+      - name: Run ten MMC5 ExRAM CPU, PPU quadrants and render-phase diagnostics
+        run: |
+          python3 tests/experimental_vn177/create_mmc5_vN181.py
+          python3 tests/experimental_vn177/test_mmc5_vN177.py "$PWD/quicknes_libretro.so" --strict
+      - name: Store MMC5 ExRAM test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN177_mmc5_exram_diagnostics
+          path: |
+            tests/experimental_vn177/result_mmc5_exram.json
+            tests/experimental_vn177/smoke/manifest.json
+      - name: Archive exact modified MMC5 source and regression generators
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN182_exact_MMC5_source
+          path: |
+            nes_emu/mappers/mapper005.hpp
+            nes_emu/Nes_Ppu_Impl.h
+            tests/experimental_vn177/
+      - name: Verify mapper 540 FDS expansion audio reaches libretro PCM
+        run: |
+          python3 tests/experimental_vn183/build_fds_roms.py
+          python3 tests/experimental_vn183/test_fds_pcm.py "$PWD/quicknes_libretro.so"
+      - name: Restore FDS audio savestate and compare frame-exact PCM
+        run: python3 tests/experimental_vn183/test_fds_savestate.py "$PWD/quicknes_libretro.so"
+      - name: Verify four FDS volume and pitch ROMs without clipping
+        run: |
+          python3 tests/experimental_vn183/build_fds_matrix.py
+          python3 tests/experimental_vn183/test_fds_matrix.py "$PWD/quicknes_libretro.so"
+      - name: Archive FDS output metrics and ROM provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN184_mapper540_FDS_PCM
+          path: |
+            tests/experimental_vn183/result_fds_pcm.json
+            tests/experimental_vn183/result_fds_savestate.json
+            tests/experimental_vn183/result_fds_matrix.json
+            tests/experimental_vn183/smoke/matrix_manifest.json
+            tests/experimental_vn183/smoke/manifest.json
+      - name: Upload Linux libretro core for direct ROM smoke tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_libretro_unix_vN162
+          path: quicknes_libretro.so
+
+  build-ps2:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: apk add --no-cache build-base
+      - name: Compile the complete QuickNES libretro core (PS2)
+        run: make -f Makefile platform=ps2 clean all
