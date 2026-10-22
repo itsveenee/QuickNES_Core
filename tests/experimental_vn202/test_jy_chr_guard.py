@@ -98,7 +98,7 @@ def generate():
             page[0x1ffa:0x2000] = bytes((0, 0x80, 0, 0x80, 0, 0x80))
             prg.extend(page)
         h = bytearray(16)
-        h[:4] = b"NES\\x1a"
+        h[:4] = bytes((78, 69, 83, 26))
         h[4] = 2 # 2 * 16K PRG
         h[5] = 0 # zero CHR-ROM; CHR-RAM expected
         h[6] = (mapper & 15) << 4
