@@ -1,0 +1,32 @@
+name: vN210 JYASIC IRQ decrement fidelity
+on:
+  push:
+    branches: ['experiment/seven-mappers-vn210-jy-downclock']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  jy-irq:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Differential scalar-vs-fast JYASIC count and prediction
+        run: |
+          g++ -std=c++11 -O2 -I. tests/experimental_vn210/test_jy_downclock.cpp -o /tmp/vn210
+          /tmp/vn210
+      - name: Build actual QuickNES Linux from source
+        run: make -f Makefile platform=unix clean all
+      - name: Execute mapper 35/209 CPU and all CPU write IRQ ROMs
+        run: |
+          python3 tests/experimental_vn151/tools/build_jy_irq_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYIRQ_*.nes --frames 40
+      - name: Retest mapper35/209 soft reset and mapped CHR write guard
+        run: |
+          python3 tests/experimental_vn209/build_jy_softreset_roms.py
+          python3 tests/experimental_vn209/test_jy_softreset.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn205/test_jy_chr_guard.py "$PWD/quicknes_libretro.so"
+      - name: Verify 219/249 permutations and 558 register mirror unaffected
+        run: |
+          python3 tests/experimental_vn142/tools/run_extended_suite.py "$PWD/quicknes_libretro.so"
+          python3 tests/experimental_vn208/build_558_mirrors.py
+          python3 tests/experimental_vn208/test_558_mirrors.py "$PWD/quicknes_libretro.so"

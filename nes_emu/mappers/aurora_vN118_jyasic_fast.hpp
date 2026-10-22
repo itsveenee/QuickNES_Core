@@ -59,7 +59,8 @@ private:
             break;
         case 0x80U:
             prescaler=(prescaler-1U)&255U;
-            counter_tick=(prescaler==0U);
+            /* vN210: decrement clocks on 0 -> mask rollover, not on reaching 0. */
+            counter_tick=((prescaler & mask)==mask);
             break;
         default: break;
         }
@@ -165,7 +166,7 @@ public:
             ticks=(n+oldp)/period;
             newp=(unsigned)((n+oldp)%period);
         } else {
-            const unsigned first=oldp ? oldp : period;
+            const unsigned first=oldp+1U; // decrement wraps 0 -> mask
             if (n>=first) ticks=1U+(n-first)/period;
             newp=(unsigned)((oldp+period-(n%period))%period);
         }
@@ -221,7 +222,7 @@ public:
         if (direction!=0x40U && direction!=0x80U) return ~0U;
         const unsigned mask=(irq_control&4U)?7U:255U;
         const unsigned p=irq_prescaler&mask;
-        const unsigned first=(direction==0x40U)?(mask+1U-p):(p?p:mask+1U);
+        const unsigned first=(direction==0x40U)?(mask+1U-p):(p+1U);
         if ((irq_control&8U) && ((direction==0x40U && irq_counter!=0U) ||
                                  (direction==0x80U && irq_counter!=255U))) return ~0U;
         const unsigned ticks=(irq_control&8U)?1U:
