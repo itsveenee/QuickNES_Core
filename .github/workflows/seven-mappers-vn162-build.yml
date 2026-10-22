@@ -64,6 +64,17 @@ jobs:
             tests/experimental_vn142/RESULTS_irq.json
             tests/experimental_vn142/RESULTS_extended.json
             tests/experimental_vn142/RESULTS_headers.json
+      - name: Verify native mapper 272 540 and 558 PRG CHR and register behavior (6 ROMs)
+        run: |
+          python3 tests/experimental_vn163/build_seven_new_roms.py
+          python3 tests/experimental_vn163/test_new_roms.py "$PWD/quicknes_libretro.so" --strict
+      - name: Upload new mapper smoke results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN164_mapper272_540_558_smoke
+          path: |
+            tests/experimental_vn163/results_163.json
+            tests/experimental_vn163/smoke/manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
