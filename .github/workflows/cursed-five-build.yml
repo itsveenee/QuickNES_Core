@@ -16,6 +16,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile the complete QuickNES libretro core (host)
         run: make -f Makefile platform=unix clean all
+      - name: Upload Linux libretro core for direct ROM smoke tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_libretro_unix_vN131
+          path: quicknes_libretro.so
 
   build-ps2:
     runs-on: ubuntu-latest
