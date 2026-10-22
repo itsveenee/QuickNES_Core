@@ -93,6 +93,17 @@ jobs:
             tests/experimental_vn163/result_irq_272_540.json
             tests/experimental_vn163/smoke/eeprom_manifest.json
             tests/experimental_vn163/smoke/irq_272_540_manifest.json
+      - name: Run six MMC5 ExRAM CPU and PPU nametable diagnostics
+        run: |
+          python3 tests/experimental_vn177/create_mmc5_vN177.py
+          python3 tests/experimental_vn177/test_mmc5_vN177.py "$PWD/quicknes_libretro.so" --strict
+      - name: Store MMC5 ExRAM test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN177_mmc5_exram_diagnostics
+          path: |
+            tests/experimental_vn177/result_mmc5_exram.json
+            tests/experimental_vn177/smoke/manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
