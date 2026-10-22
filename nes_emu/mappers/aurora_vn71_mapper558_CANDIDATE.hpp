@@ -88,7 +88,15 @@ public:
     virtual void write(nes_time_t,nes_addr_t,int){}
     virtual bool write_intercepted(nes_time_t,nes_addr_t a,int v){
         if(!m_.write((unsigned)a,(unsigned)v,(unsigned)cart().prg_size()))return false;
-        if((a&0xff00U)!=0x5200U){sync_prg();sync_chr();}
+        /* vN212: $5000-$57FF mirrors every $400. The EEPROM/serial
+         * register ($5200/$5600) changes neither PRG nor CHR mapping:
+         * do not flush the renderer or re-map SRAM for every clock edge.
+         * Register 1 and 3 change PRG only; register 0 also controls 1bpp. */
+        const unsigned reg=((unsigned)a>>8)&3U;
+        if(reg!=2U) {
+            sync_prg();
+            if(reg==0U)sync_chr();
+        }
         return true;
     }
     virtual int read(nes_time_t,nes_addr_t a){unsigned v;
