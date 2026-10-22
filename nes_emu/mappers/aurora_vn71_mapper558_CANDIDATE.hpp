@@ -10,6 +10,7 @@
 
 class Mapper558 : public Nes_Mapper {
     AuroraMapper558Stage m_;
+    bool visual_1bpp_mode_;
     uint8_t packed_[AuroraMapper558Stage::snapshot_size];
     void sync_prg(){
         AuroraMapper558Stage::Mapping z;m_.map(z);
@@ -25,7 +26,14 @@ class Mapper558 : public Nes_Mapper {
          * Accurate PA13/PA09 fetch notifications are still required for
          * CPU $2007 latch behavior and the complete cartridge semantics. */
         const bool mode=m_.video_1bpp_enabled();
-        emu().ppu.set_pec586_1bpp_mode(mode);
+        /* vN195: finish rendering through the current CPU instant before
+         * switching the physical 1bpp wiring. Do nothing for repeated
+         * writes that leave the mode unchanged. */
+        if(mode!=visual_1bpp_mode_) {
+            emu().ppu.render_until(emu().clock());
+            emu().ppu.set_pec586_1bpp_mode(mode);
+            visual_1bpp_mode_=mode;
+        }
         if(!mode){
             if(cart().chr_size())set_chr_bank(0x0000,bank_8k,0);
             else set_chr_ram_bank(0x0000,bank_8k,0);
@@ -40,8 +48,8 @@ class Mapper558 : public Nes_Mapper {
         }
     }
 public:
-    Mapper558():m_(false){memset(packed_,0,sizeof packed_);register_state(packed_,sizeof packed_);}
-    virtual void reset_state(){m_.reset();}
+    Mapper558():m_(false),visual_1bpp_mode_(false){memset(packed_,0,sizeof packed_);register_state(packed_,sizeof packed_);}
+    virtual void reset_state(){m_.reset();visual_1bpp_mode_=false;emu().ppu.set_pec586_1bpp_mode(false);}
     virtual long aurora_extra_sram_save_size() const {
         // Bank 0 contains 512-byte EEPROM backing; bank 1 contains 8 KiB
         // volatile WRAM. Store both in savestates, but only EEPROM in .srm.
