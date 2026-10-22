@@ -28,6 +28,19 @@ jobs:
         run: |
           python3 tests/experimental_vn142/tools/build_highbank_249.py
           python3 tests/experimental_vn142/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn142/smoke/Aurora_HighBank_249_4MiB.nes --frames 35
+      - name: Generate and run 12 real JYASIC mapper 35/209 smoke ROMs
+        run: |
+          python3 tests/experimental_vn151/tools/build_jyasic_roms.py
+          python3 tests/experimental_vn151/tools/build_jy_irq_roms.py
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYASIC_35_PRG_CHR_ALU.nes tests/experimental_vn151/smoke/Aurora_JYASIC_209_PRG_CHR_ALU.nes --frames 40
+          python3 tests/experimental_vn151/tools/run_actual_quicknes_libretro.py "$PWD/quicknes_libretro.so" tests/experimental_vn151/smoke/Aurora_JYIRQ_*.nes --frames 40
+      - name: Upload JYASIC diagnostic manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN154_jyasic_smoke_manifests
+          path: |
+            tests/experimental_vn151/smoke/jyasic_manifest.json
+            tests/experimental_vn151/smoke/jyirq_manifest.json
       - name: Upload vN142 test results
         uses: actions/upload-artifact@v4
         with:
