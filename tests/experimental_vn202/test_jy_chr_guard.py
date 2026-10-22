@@ -18,6 +18,7 @@ class Asm:
         self.data = bytearray()
         self.labels = {}
         self.fixups = []
+        self.check_count = 0
     def put(self, *b): self.data.extend(bytes(b))
     def mark(self, name):
         assert name not in self.labels
@@ -31,9 +32,14 @@ class Asm:
         self.put(0x4c, 0, 0)
         self.fixups.append((len(self.data)-2, label))
     def check(self, expected, tag):
+        self.check_count += 1
+        assert self.check_count < 15
+        marker = 0x10 + self.check_count
+        print("Diagnostic marker", hex(marker), tag, flush=True)
         self.immediate(0xc9, expected)  # CMP #imm
-        self.put(0xf0, 3)  # BEQ over JMP failure (3 bytes)
-        self.jmp("fail")
+        self.put(0xf0, 5)  # BEQ over LDX immediate + JMP result
+        self.immediate(0xa2, marker)  # unique palette for failed check
+        self.jmp("result")
     def ppu_addr(self, addr):
         self.load_store(addr >> 8, 0x2006)
         self.load_store(addr & 255, 0x2006)
