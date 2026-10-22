@@ -1,0 +1,67 @@
+#ifndef AURORA_VN71_MAPPER558_QUICKNES_CANDIDATE_HPP
+#define AURORA_VN71_MAPPER558_QUICKNES_CANDIDATE_HPP
+/* Experimental NES2 mapper 558 QuickNES bridge. Requires accurate PA09/PA13
+   pattern-fetch stream and NES2 PRG RAM+EEPROM persistence metadata.
+   No false claims of complete EEPROM persistence or PPU timing. */
+#include "Nes_Mapper.h"
+#include "Nes_Core.h"
+#include "aurora_vn112_mapper558_model.hpp"
+#include <string.h>
+
+class Mapper558 : public Nes_Mapper {
+    AuroraMapper558Stage m_;
+    uint8_t packed_[AuroraMapper558Stage::snapshot_size];
+    void sync_prg(){
+        AuroraMapper558Stage::Mapping z;m_.map(z);
+        set_prg_bank(0x8000,bank_32k,(int)z.prg32);
+        enable_sram(true);
+    }
+    void sync_chr(){
+        AuroraMapper558Stage::Mapping z;m_.map(z);
+        if(cart().chr_size()) {
+            set_chr_bank(0x0000,bank_4k,(int)z.chr4[0]);
+            set_chr_bank(0x1000,bank_4k,(int)z.chr4[1]);
+        } else {
+            // Basic CHR-RAM path only. Does NOT implement PA0->A3 and PA9->A12
+            // remapping in 1bpp video mode; block stable registration.
+            set_chr_ram_bank(0x0000,bank_4k,(int)z.chr4[0]);
+            set_chr_ram_bank(0x1000,bank_4k,(int)z.chr4[1]);
+        }
+    }
+public:
+    Mapper558():m_(false){memset(packed_,0,sizeof packed_);register_state(packed_,sizeof packed_);}
+    virtual void reset_state(){m_.reset();}
+    // vN95: Do not confuse CPU $2006/$2007 notifications with physical
+    // PPU pattern/nametable fetches. This callback remains unconnected.
+    virtual bool needs_vram_address_hook()const{return false;}
+    void aurora_physical_ppu_fetch_event(nes_addr_t a){
+        AuroraMapper558Stage::Mapping before,after;m_.map(before);
+        m_.ppu_fetch((unsigned)a);m_.map(after);
+        if(before.chr4[0]!=after.chr4[0]) {
+            // Avoid render_until() recursion from a PPU address callback.
+            // DO NOT replace with normal CHR-ROM bank calls on CHR-RAM carts.
+            // Hardware 1bpp address remapping remains an unsolved PPU policy
+            // prerequisite; vN95 only prevents wrong CPU notifications.
+            if(cart().chr_size()) {
+                emu().ppu.set_chr_bank(0,0x1000,(long)after.chr4[0]*0x1000L);
+                emu().ppu.set_chr_bank(0x1000,0x1000,(long)after.chr4[1]*0x1000L);
+            }
+        }
+    }
+    virtual void apply_mapping(){sync_prg();sync_chr();intercept_reads(0x5000,0x800);intercept_writes(0x5000,0x800);}
+    virtual void write(nes_time_t,nes_addr_t,int){}
+    virtual bool write_intercepted(nes_time_t,nes_addr_t a,int v){
+        if(!m_.write((unsigned)a,(unsigned)v,(unsigned)cart().prg_size()))return false;
+        if((a&0xff00U)!=0x5200U){sync_prg();sync_chr();}
+        return true;
+    }
+    virtual int read(nes_time_t,nes_addr_t a){unsigned v;
+        return m_.read((unsigned)a,v)?(int)v:-1;
+    }
+    virtual void save_state(mapper_state_t& out){m_.save(packed_);Nes_Mapper::save_state(out);}
+    virtual void read_state(mapper_state_t const& in){
+        memset(packed_,0,sizeof packed_);in.read(packed_,sizeof packed_);
+        m_.load(packed_);sync_prg();sync_chr();
+    }
+};
+#endif
