@@ -118,6 +118,10 @@ jobs:
           python3 tests/experimental_vn183/test_fds_pcm.py "$PWD/quicknes_libretro.so"
       - name: Restore FDS audio savestate and compare frame-exact PCM
         run: python3 tests/experimental_vn183/test_fds_savestate.py "$PWD/quicknes_libretro.so"
+      - name: Verify four FDS volume and pitch ROMs without clipping
+        run: |
+          python3 tests/experimental_vn183/build_fds_matrix.py
+          python3 tests/experimental_vn183/test_fds_matrix.py "$PWD/quicknes_libretro.so"
       - name: Archive FDS output metrics and ROM provenance
         uses: actions/upload-artifact@v4
         with:
@@ -125,6 +129,8 @@ jobs:
           path: |
             tests/experimental_vn183/result_fds_pcm.json
             tests/experimental_vn183/result_fds_savestate.json
+            tests/experimental_vn183/result_fds_matrix.json
+            tests/experimental_vn183/smoke/matrix_manifest.json
             tests/experimental_vn183/smoke/manifest.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
