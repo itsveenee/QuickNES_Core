@@ -83,7 +83,8 @@ public:
 		chr_mode = 0;
 		ram_protect1 = 0;
 		ram_protect2 = 0;
-		exram_mode = 0;
+		/* MMC5 ExRAM power-on mode is %11 (CPU read-only). */
+		exram_mode = 3;
 		nametable_mode = 0;
 		fill_tile = 0;
 		fill_attr = 0;
@@ -102,6 +103,8 @@ public:
 		{ chr_banks [i] = 0; chr_bank_high[i] = 0; }
 
 		memset( exram, 0, sizeof exram );
+		memset( fill_nt, 0, sizeof fill_nt );
+		memset( empty_nt, 0, sizeof empty_nt );
 	}
 
 	virtual void read_state( mapper_state_t const& in )
@@ -254,19 +257,39 @@ public:
 
 	// -- Nametables / mirroring ---------------------------------------------
 
+/* vN175: MMC5 selects CIRAM0, CIRAM1, ExRAM or fill per 1 KiB NT slot.
+	 * Keep non-MMC5 mirroring unchanged; mapped pointer remains stable. */
 	void sync_mirror()
 	{
-		// $5105: two bits per slot. 0/1 select CIRAM pages; 2 (ExRAM) and 3
-		// (fill) can't be pointed at real sources here, so approximate with
-		// CIRAM page 0.
-		int m = nametable_mode;
-		int p [4];
-		for ( int i = 0; i < 4; i++ )
+		int p[4];
+		for (int i=0;i<4;i++)
+			p[i] = ((nametable_mode >> (i*2)) & 3) == 1 ? 1 : 0;
+		mirror_manual(p[0],p[1],p[2],p[3]);
+		for (int i=0;i<4;i++)
 		{
-			int sel = (m >> (i * 2)) & 3;
-			p [i] = (sel == 1) ? 1 : 0;
+			int sel = (nametable_mode >> (i*2)) & 3;
+			if (sel == 2)
+			{
+				if (exram_mode < 2)
+					emu().ppu.set_nt_bank_external(i,exram,true);
+				else
+					emu().ppu.set_nt_bank_external(i,empty_nt,false);
+			}
+			else if (sel == 3)
+				emu().ppu.set_nt_bank_external(i,fill_nt,false);
 		}
-		mirror_manual( p [0], p [1], p [2], p [3] );
+	}
+	void sync_fill()
+	{
+		memset(fill_nt,fill_tile,0x3c0);
+		const uint8_t attr=(uint8_t)((fill_attr & 3)*0x55);
+		memset(fill_nt+0x3c0,attr,0x40);
+	}
+	bool exram_during_render(nes_time_t t) const
+	{
+		const nes_time_t first=(341*21+128)/3;
+		const nes_time_t last =(341*261+128)/3;
+		return ppu_enabled() && t>=first && t<last;
 	}
 
 	// -----------------------------------------------------------------------
@@ -282,10 +305,10 @@ public:
 			case 0x01: chr_mode     = data & 3; sync_chr();   break; // $5101
 			case 0x02: ram_protect1 = data & 3; sync_prg();   break; // $5102
 			case 0x03: ram_protect2 = data & 3; sync_prg();   break; // $5103
-			case 0x04: exram_mode   = data & 3; sync_exgrafix(); break; // $5104
+			case 0x04: exram_mode   = data & 3; sync_exgrafix(); sync_mirror(); break; // $5104
 			case 0x05: nametable_mode = data; sync_mirror();  break; // $5105
-			case 0x06: fill_tile    = data;                   break; // $5106
-			case 0x07: fill_attr    = data & 3;               break; // $5107
+			case 0x06: fill_tile    = data; sync_fill();          break; // $5106
+			case 0x07: fill_attr    = data & 3; sync_fill();    break; // $5107
 
 			case 0x13: prg_banks [0] = data; sync_prg(); break; // $5113
 			case 0x14: prg_banks [1] = data; sync_prg(); break; // $5114
@@ -338,7 +361,11 @@ public:
 		}
 		else if ( (unsigned) (addr - 0x5c00) < 0x400 ) // ExRAM
 		{
-			exram [addr - 0x5c00] = data;
+			/* vN174: ExRAM CPU access obeys $5104.  Mode 3 is RO;
+			 * modes 0/1 write only in frame (blanking writes zero). */
+			if (exram_mode == 2) exram[addr-0x5c00]=(uint8_t)data;
+			else if (exram_mode < 2)
+				exram[addr-0x5c00]=exram_during_render(time) ? (uint8_t)data : 0;
 		}
 		else
 		{
@@ -387,7 +414,7 @@ public:
 		if ( addr == 0x5206 )
 			return (mul_a * mul_b) >> 8;
 		if ( (unsigned) (addr - 0x5c00) < 0x400 )
-			return exram [addr - 0x5c00];
+			return exram_mode >= 2 ? exram[addr-0x5c00] : -1; // open bus
 		return -1; // not handled / open bus
 	}
 
@@ -401,6 +428,7 @@ public:
 
 		sync_prg();
 		sync_chr();
+		sync_fill();
 		sync_mirror();
 
 		// Set ExGrafix state directly (no mid-frame render flush needed here).
@@ -416,6 +444,8 @@ public:
 
 private:
 	uint8_t exram [0x400]; // 1 KiB extended RAM (not savestated; see above)
+	uint8_t fill_nt[0x400]; // hardware fill: $5106 tile and $5107 attribute
+	uint8_t empty_nt[0x400]; // disabled ExRAM nametable in CPU modes
 
 	bool ram_write_protected() const
 	{

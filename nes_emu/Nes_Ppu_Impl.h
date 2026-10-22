@@ -44,6 +44,8 @@ public:
 	// Mapping
 	enum { vaddr_clock_mask = 0x1000 };
 	void set_nt_banks( int bank0, int bank1, int bank2, int bank3 );
+	/* vN174 MMC5: explicit 1 KiB nametable source; other mappers untouched. */
+	void set_nt_bank_external( int page, uint8_t* bytes, bool writable );
 	void set_chr_bank( int addr, int size, long data );
 	void set_chr_bank_ex( int addr, int size, long data );
 	void set_chr_ram_bank( int addr, int size, int bank );
@@ -218,6 +220,14 @@ inline void Nes_Ppu_Impl::set_nt_banks( int bank0, int bank1, int bank2, int ban
 	nt_writable [3] = true;
 	special_nt_mode = false;
 	nt_extra_ram_used = ((bank0 | bank1 | bank2 | bank3) & 2) != 0;
+}
+
+inline void Nes_Ppu_Impl::set_nt_bank_external(int page,uint8_t* bytes,bool writable)
+{
+	assert((unsigned)page < 4 && bytes);
+	nt_banks[page] = bytes;
+	nt_writable[page] = writable;
+	special_nt_mode = true;
 }
 
 inline int Nes_Ppu_Impl::map_palette( int addr )
