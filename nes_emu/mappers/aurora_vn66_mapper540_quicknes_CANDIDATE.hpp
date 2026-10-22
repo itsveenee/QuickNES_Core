@@ -88,7 +88,7 @@ public:
         register_state(snapshot_,sizeof snapshot_);
         // The source model emits pre-mixer amplitudes, not direct PCM.
         // This tentative gain needs comparison with authentic FDS hardware.
-        synth_.volume(1.0/256.0);
+        /* Blip_Synth::volume() expects Q30 FIXED POINT, not a double.\n         * The old 1.0/256.0 implicitly converted to integer zero, muting FDS.\n         * Preserve the intended gain without changing clock or sample rates. */\n        synth_.volume(BLIP_Q30_ONE / 256);
     }
     // PPUCTRL and PPUMASK changes already flush mapper time via QuickNES
     // when this is true; no global renderer alteration is required.
