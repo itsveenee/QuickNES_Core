@@ -48,6 +48,9 @@ public:
 	
 	// Write to memory below 0x8000 (returns false if mapper didn't handle write)
 	virtual bool write_intercepted( nes_time_t, nes_addr_t, int data );
+	/* AURORA_VN151_JY_CPU_BUS_OBSERVER: default OFF, selected JYASIC mappers only. */
+	virtual bool aurora_observe_all_cpu_writes() const {return false;}
+	virtual void aurora_cpu_write_event(nes_time_t,nes_addr_t,int) {}
 	
 // Timing
 	

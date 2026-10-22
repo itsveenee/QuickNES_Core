@@ -54,6 +54,8 @@ public:
 	int joypad_read_count;
 	Nes_Cart const* cart;
 	Nes_Mapper* mapper;
+	/* AURORA_VN151_JY_CPU_BUS_OBSERVER */
+	bool aurora_cpu_write_observer_enabled;
 	nes_state_t nes;
 	Nes_Ppu ppu;
 
@@ -141,6 +143,9 @@ public: private: friend class Nes_Cpu;
 	int  cpu_read( nes_addr_t, nes_time_t );
 	void cpu_write( nes_addr_t, int data, nes_time_t );
 	void cpu_write_2007( int data );
+	void aurora_notify_cpu_write(nes_addr_t,int,nes_time_t);
+	void aurora_write_low(nes_addr_t,int,nes_time_t);
+	void aurora_interrupt_push(int);
 	
 private:
 	unsigned char data_reader_mapped [page_count + 1]; // extra entry for overflow

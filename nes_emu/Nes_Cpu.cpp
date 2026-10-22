@@ -67,10 +67,16 @@ void Nes_Cpu::map_code( nes_addr_t start, unsigned size, const void* data )
 
 #define READ_LIKELY_PPU( addr ) (NES_CPU_READ_PPU( this, (addr), (clock_count) ))
 #define READ( addr )            (NES_CPU_READ( this, (addr), (clock_count) ))
-#define WRITE( addr, data )     {NES_CPU_WRITE( this, (addr), (data), (clock_count) );}
+/* AURORA_VN151_JY_CPU_BUS_OBSERVER: evaluate bus args once and notify before write. */
+#define WRITE( addr, data ) { \
+	const nes_addr_t aurora_bus_addr_ = (nes_addr_t)(addr); \
+	const int aurora_bus_data_ = (data); \
+	STATIC_CAST(Nes_Core&,*this).aurora_notify_cpu_write(aurora_bus_addr_,aurora_bus_data_,clock_count); \
+	NES_CPU_WRITE(this,aurora_bus_addr_,aurora_bus_data_,clock_count); \
+}
 
 #define READ_LOW( addr )        (low_mem [int (addr)])
-#define WRITE_LOW( addr, data ) (void) (READ_LOW( addr ) = (data))
+#define WRITE_LOW( addr, data ) STATIC_CAST(Nes_Core&,*this).aurora_write_low((nes_addr_t)(addr),(data),clock_count)
 
 #define READ_PROG( addr )   (code_map [(addr) >> page_bits] [addr])
 #define READ_PROG16( addr ) GET_LE16( &READ_PROG( addr ) )

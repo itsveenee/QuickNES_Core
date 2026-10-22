@@ -78,6 +78,18 @@ inline int Nes_Core::cpu_read_ppu( nes_addr_t addr, nes_time_t time )
 	return result;
 }
 
+/* AURORA_VN151_JY_CPU_BUS_OBSERVER: ordinary CPU writes are observed before the fast write path. */
+inline void Nes_Core::aurora_notify_cpu_write(nes_addr_t addr,int val,nes_time_t local_time)
+{
+	if (aurora_cpu_write_observer_enabled)
+		mapper->aurora_cpu_write_event(local_time + cpu_time_offset,addr,val & 255);
+}
+inline void Nes_Core::aurora_write_low(nes_addr_t addr,int val,nes_time_t local_time)
+{
+	aurora_notify_cpu_write(addr,val,local_time);
+	cpu::low_mem[int(addr)] = (uint8_t)val;
+}
+
 void Nes_Core::cpu_write_2007( int data )
 {
 	// ppu.write_2007() is inlined

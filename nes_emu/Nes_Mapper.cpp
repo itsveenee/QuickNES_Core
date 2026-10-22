@@ -178,6 +178,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/aurora_vn45_mapper553.hpp"
 #include "mappers/aurora_vn54_mapper554.hpp"
 #include "mappers/aurora_vn37_mapper557.hpp"
+#include "mappers/aurora_vN118_mapper35_209_FAST_CANDIDATE.hpp"
 #include "mappers/aurora_vn106_mapper219.hpp"
 #include "mappers/aurora_vn107_mapper249.hpp"
 #include "mappers/aurora_37_40_91_150.hpp"
@@ -444,6 +445,7 @@ if (mapperCode == 176 &&
     case   1: mapper = new Mapper001(); break;
     case   2: mapper = new Mapper002(); break;
     case   3: mapper = new Mapper003(); break;
+    case  35: mapper = new Mapper035(); break;
     case   4: mapper = (cart->submapper_code() == 5) ? static_cast<Nes_Mapper*>(new AuroraVn107Mapper249(true)) : static_cast<Nes_Mapper*>(new Mapper004()); break;
     case   5: mapper = new Mapper005(); break;
     case   7: mapper = new Mapper007(); break;
@@ -536,6 +538,7 @@ if (mapperCode == 176 &&
     case 189: mapper = new Mapper189(); break;
     case 197: mapper = new Mapper197(); break;
     case 215: mapper = new Mapper215(); break;
+    case 209: mapper = new Mapper209(); break;
     case 219: mapper = new AuroraVn106Mapper219(); break;
     case 222: mapper = new Mapper222(); break;
     case  14: mapper = new Mapper014(); break;

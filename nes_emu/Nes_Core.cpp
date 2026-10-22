@@ -35,6 +35,7 @@ Nes_Core::Nes_Core() : ppu( this )
 	cart = NULL;
 	impl = NULL;
 	mapper = NULL;
+	aurora_cpu_write_observer_enabled = false;
 	memset( &nes, 0, sizeof nes );
 	memset( &joypad, 0, sizeof joypad );
 }
@@ -56,6 +57,7 @@ void Nes_Core::close()
 	cart = NULL;
 	delete mapper;
 	mapper = NULL;
+	aurora_cpu_write_observer_enabled = false;
 	
 	ppu.close_chr();
 	
@@ -71,6 +73,7 @@ const char * Nes_Core::open( Nes_Cart const* new_cart )
 	mapper = Nes_Mapper::create( new_cart, this );
 	if ( !mapper ) 
 		return unsupported_mapper;
+	aurora_cpu_write_observer_enabled = mapper->aurora_observe_all_cpu_writes();
 
 	ppu.set_vram_address_hook( mapper->needs_vram_address_hook() ? mapper : NULL );
 
@@ -1010,11 +1013,19 @@ void Nes_Core::reset( bool full_reset, bool erase_battery_ram )
 	error_count = 0;
 }
 
+/* AURORA_VN151_JY_CPU_BUS_OBSERVER: IRQ/NMI stack pushes are outside the CPU core WRITE macro. */
+void Nes_Core::aurora_interrupt_push(int data)
+{
+	if (aurora_cpu_write_observer_enabled)
+		mapper->aurora_cpu_write_event(cpu_time(),(nes_addr_t)(0x100U | cpu::r.sp),data & 255);
+	cpu::push_byte(data);
+}
+
 void Nes_Core::vector_interrupt( nes_addr_t vector )
 {
-	cpu::push_byte( cpu::r.pc >> 8 );
-	cpu::push_byte( cpu::r.pc & 0xFF );
-	cpu::push_byte( cpu::r.status | 0x20 ); // reserved bit is set
+	aurora_interrupt_push( cpu::r.pc >> 8 );
+	aurora_interrupt_push( cpu::r.pc & 0xFF );
+	aurora_interrupt_push( cpu::r.status | 0x20 ); // reserved bit is set
 	
 	cpu_adjust_time( 7 );
 	cpu::r.status |= irq_inhibit_mask;
