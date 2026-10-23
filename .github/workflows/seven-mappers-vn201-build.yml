@@ -154,6 +154,16 @@ jobs:
           path: |
             tests/experimental_vn203/results_jy_chr_protection.json
             tests/experimental_vn203/smoke/manifest_chr_protection.json
+      - name: Archive exact seven-mapper source and JYASIC CHR-RAM fixes
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN207_exact_chr_source_and_tests
+          path: |
+            nes_emu/Nes_Ppu_Impl.h
+            nes_emu/Nes_Ppu_Impl.cpp
+            nes_emu/Nes_Mapper.cpp
+            nes_emu/mappers/aurora_vN118_mapper35_209_FAST_CANDIDATE.hpp
+            tests/experimental_vn203/
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
