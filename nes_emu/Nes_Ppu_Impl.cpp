@@ -255,7 +255,11 @@ void Nes_Ppu_Impl::set_chr_ram_bank( int addr, int size, int bank )
 {
 	if ( !special_chr_mode || special_chr_ram_size <= 0 )
 	{
-		set_chr_bank( addr, size, bank );
+		/* vN204: 'bank' is a bank INDEX, whereas set_chr_bank's third
+		 * argument is a BYTE OFFSET. Previously bank 1 mapped at byte 1,
+		 * not byte 1024, corrupting normal CHR-RAM pages 1..7.
+		 * Kept in the bank-change path, never in the pixel renderer. */
+		set_chr_bank( addr, size, (long)bank * size );
 		return;
 	}
 	int count = (unsigned) size / chr_page_size;
