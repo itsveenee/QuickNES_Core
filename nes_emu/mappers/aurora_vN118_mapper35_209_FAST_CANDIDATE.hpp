@@ -39,8 +39,10 @@ class AuroraJYMapper35_209 : public Nes_Mapper {
             if(cart().chr_size())set_chr_bank(dst,bank_1k,(int)m.chr1[i]);
             else set_chr_ram_bank(dst,bank_1k,(int)m.chr1[i]);
         }
-        // CHR-RAM bank write protection requires an additional PPU RAM policy
-        // hook, not available in stock QuickNES. Do not pretend to enforce it.
+        /* vN201: honor JYASIC $D002 bit 6. CHR-ROM remains unaffected.
+         * Use a mapper-only PPU gate to block writes in BOTH regular and
+         * special $2007 fast paths; release protection on mapper unload. */
+        emu().ppu.set_aurora_chr_ram_write_protected(!cart().chr_size() && m.chr_write_protected);
     }
     void sync_nt() {
         AuroraJYASICStage::Mapping m;chip_.map(m);

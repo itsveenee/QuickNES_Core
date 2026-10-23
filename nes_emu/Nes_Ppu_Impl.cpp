@@ -36,6 +36,7 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	special_chr_ram_size = 0;
 	special_chr_mode = false;
 	chr_read_or_mask = 0;
+	aurora_chr_ram_write_protected = false;
 	nt_extra_ram_used = false;
 	special_nt_mode = false;
 	vram_address_hook = NULL;
@@ -176,6 +177,7 @@ void Nes_Ppu_Impl::close_chr()
 	special_chr_ram_size = 0;
 	special_chr_mode = false;
 	chr_read_or_mask = 0;
+	aurora_chr_ram_write_protected = false;
 	special_nt_mode = false;
 	pec586_1bpp_mode = false;
 	for ( int i = 0; i < chr_addr_size / chr_page_size; ++i )

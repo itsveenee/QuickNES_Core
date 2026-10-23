@@ -50,6 +50,8 @@ public:
 	void set_chr_bank_ex( int addr, int size, long data );
 	void set_chr_ram_bank( int addr, int size, int bank );
 	void set_chr_read_or( int mask );
+	/* vN201: only JYASIC 35/209 opts in. Default remains fast/writable. */
+	void set_aurora_chr_ram_write_protected(bool value) { aurora_chr_ram_write_protected = value; }
 	void set_nt_bank_chr( int page, long chr_1k_bank );
 	void set_vram_address_hook( Nes_Mapper* m ) { vram_address_hook = m; }
 	void notify_vram_address( int addr );
@@ -127,6 +129,7 @@ protected: //friend class Nes_Ppu_Rendering; private:
 	
 	bool any_tiles_modified;
 	bool chr_is_writable;
+	bool aurora_chr_ram_write_protected; // opt-in JYASIC CHR-RAM write gate
 	void update_tiles( int first_tile );
 	
 	typedef uint32_t cache_t;
@@ -266,7 +269,7 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 			if ( special_chr_mode )
 			{
 				int page = addr / chr_page_size;
-				if ( chr_page_writable [page] )
+				if ( chr_page_writable [page] && !aurora_chr_ram_write_protected )
 				{
 					long physical = chr_pages [page] + addr;
 					if ( (unsigned long) physical < (unsigned long) chr_size )
@@ -284,9 +287,11 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 				if ( (unsigned) mod_index < 0x2000 / divisor )
 				{
 					int mod = modified_tiles [mod_index];
-					chr_ram [addr] = data;
-					any_tiles_modified = true;
-					modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+					if (!aurora_chr_ram_write_protected) {
+						chr_ram [addr] = data;
+						any_tiles_modified = true;
+						modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+					}
 				}
 			}
 		}
@@ -319,12 +324,15 @@ inline int Nes_Ppu_Impl::write_2007( int data )
 	// use index into modified_tiles [] since it's calculated sooner than addr is masked
 	if ( (unsigned) mod_index < 0x2000 / divisor )
 	{
-		// Avoid overhead of checking for read-only CHR; if that is the case,
-		// this modification will be ignored.
-		int mod = modified_tiles [mod_index];
-		chr_ram [addr] = data;
-		any_tiles_modified = true;
-		modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+		/* JYASIC-only opt-in: do not modify data OR tile-cache dirty bits
+		 * for protected CHR-RAM, and do not fall through to NT/palette. */
+		if (!aurora_chr_ram_write_protected)
+		{
+			int mod = modified_tiles [mod_index];
+			chr_ram [addr] = data;
+			any_tiles_modified = true;
+			modified_tiles [mod_index] = mod | (1 << ((unsigned) addr / bytes_per_tile % 8));
+		}
 	}
 	else if ( addr < 0x3f00 )
 	{
