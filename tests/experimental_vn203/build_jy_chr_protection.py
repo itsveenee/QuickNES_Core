@@ -33,15 +33,23 @@ class A:
    else:self.code_[pos:pos+2]=tgt.to_bytes(2,'little')
   assert len(self.code_)<0x1000,len(self.code_)
   return bytes(self.code_)
-def build(mapper,negative):
+def build(mapper,negative,multi=False):
  p=A();p.emit(0x78,0xd8);p.sta(0x40,0x4017);p.sta(0,0x4010);p.sta(0,0x2000);p.sta(0,0x2001)
- # default CHR RAM physical byte at $0080; first write must succeed
- p.sta(0x00,0xd002);p.write_chr(0x0080,0x33);p.check_chr(0x0080,0x33)
- # Bit 6 of $D002 disallows physical CHR-RAM write. This is the regression.
- p.sta(0x40,0xd002);p.write_chr(0x0080,0x77)
- p.check_chr(0x0080,0x77 if negative else 0x33)
- # Restoring write-enable must allow $2007 again.
- p.sta(0x00,0xd002);p.write_chr(0x0080,0x55);p.check_chr(0x0080,0x55)
+ # Write 4 different CHR-RAM pages in multi-page mode, including $1F80.
+ # All writes must be blocked with mode[2].6=1; no tile dirtiness may leak.
+ pages=[0x0080,0x0480,0x1080,0x1f80] if multi else [0x0080]
+ p.sta(0x00,0xd000)  # 8 KiB CHR banking, distinct physical 1 KiB pages
+ p.sta(0x00,0xd002)
+ for i,addr in enumerate(pages):
+  val=0x33+i
+  p.write_chr(addr,val);p.check_chr(addr,val)
+ p.sta(0x40,0xd002)
+ for i,addr in enumerate(pages):
+  p.write_chr(addr,0x77+i)
+  p.check_chr(addr,(0x77+i) if (negative and i==0) else (0x33+i))
+ p.sta(0x00,0xd002)
+ for i,addr in enumerate(pages):
+  p.write_chr(addr,0x55+i);p.check_chr(addr,0x55+i)
  p.finish();code=p.code()
  prg=bytearray([0xea])*(64*8192)
  for b in range(64):
@@ -52,9 +60,10 @@ def build(mapper,negative):
  return data,len(code)
 entries={}
 for mapper in (35,209):
- for negative in (False,True):
-  name=f'Aurora_JYCHR_{mapper}_'+('negative' if negative else 'positive')+'.nes'
-  data,size=build(mapper,negative);(OUT/name).write_bytes(data)
-  entries[name]={'mapper':mapper,'negative':negative,'expected':'red' if negative else 'green','prg_bytes':len(data)-16,'code_bytes':size,'sha256':hashlib.sha256(data).hexdigest()}
+ for multi in (False,True):
+  for negative in (False,True):
+   name=f'Aurora_JYCHR_{mapper}_'+('multipage_' if multi else '')+('negative' if negative else 'positive')+'.nes'
+   data,size=build(mapper,negative,multi);(OUT/name).write_bytes(data)
+   entries[name]={'mapper':mapper,'negative':negative,'multipage':multi,'expected':'red' if negative else 'green','prg_bytes':len(data)-16,'code_bytes':size,'sha256':hashlib.sha256(data).hexdigest()}
 (OUT/'manifest_chr_protection.json').write_text(json.dumps(entries,indent=2)+'\n')
 print('Generated',len(entries),'mapper 35/209 CHR-RAM protection diagnostic ROMs')

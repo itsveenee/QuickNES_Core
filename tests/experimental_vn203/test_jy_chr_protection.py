@@ -13,14 +13,15 @@ p=argparse.ArgumentParser();p.add_argument('core',type=Path);p.add_argument('--s
 runner=module.Headless(args.core.resolve());out={};ok=True
 try:
  for mapper in (35,209):
-  for negative in (False,True):
-   name=f'Aurora_JYCHR_{mapper}_'+('negative' if negative else 'positive')+'.nes'
-   _,p0,p1,pc,mb=runner.load_and_run(ROOT/'smoke'/name,frames=25)
-   expected=0x16 if negative else 0x2a
-   passed=p0==expected and p1==expected and mb==50 and 0x8000<=pc<0x8200
-   out[name]={'palette':[p0,p1],'pc':pc,'mapper_state_bytes':mb,'expected':expected,'passed':passed}
-   print(name,'PASS' if passed else 'FAIL','actual',hex(p0),hex(p1),'expected',hex(expected),flush=True)
-   ok &=passed
+  for multi in (False,True):
+   for negative in (False,True):
+    name=f'Aurora_JYCHR_{mapper}_'+('multipage_' if multi else '')+('negative' if negative else 'positive')+'.nes'
+    _,p0,p1,pc,mb=runner.load_and_run(ROOT/'smoke'/name,frames=25)
+    expected=0x16 if negative else 0x2a
+    passed=p0==expected and p1==expected and mb==50 and 0x8000<=pc<0x9000
+    out[name]={'palette':[p0,p1],'pc':pc,'mapper_state_bytes':mb,'multipage':multi,'expected':expected,'passed':passed}
+    print(name,'PASS' if passed else 'FAIL','actual',hex(p0),hex(p1),'expected',hex(expected),flush=True)
+    ok &=passed
 finally:runner.close()
 (ROOT/'results_jy_chr_protection.json').write_text(json.dumps(out,indent=2)+'\n')
 print('OVERALL:',ok,flush=True)
