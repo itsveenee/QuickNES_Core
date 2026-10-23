@@ -143,6 +143,17 @@ jobs:
           path: |
             tests/experimental_vn193/result_mapper558_vN193.json
             tests/experimental_vn193/smoke/manifest.json
+      - name: Verify JYASIC CHR-RAM write protection in four actual ROMs
+        run: |
+          python3 tests/experimental_vn203/build_jy_chr_protection.py
+          python3 tests/experimental_vn203/test_jy_chr_protection.py "$PWD/quicknes_libretro.so" --strict
+      - name: Save JYASIC CHR-RAM protection diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: quicknes_vN203_jyasic_chr_protection
+          path: |
+            tests/experimental_vn203/results_jy_chr_protection.json
+            tests/experimental_vn203/smoke/manifest_chr_protection.json
       - name: Upload Linux libretro core for direct ROM smoke tests
         uses: actions/upload-artifact@v4
         with:
