@@ -202,6 +202,8 @@ const char * Nes_Emu::save_battery_ram( Auto_File_Writer out )
 	RETURN_ERR( out.open() );
 	long bytes = battery_ram_size();
 	if ( bytes <= 0 ) bytes = high_mem_size;
+	if (emu.mapper && emu.mapper->aurora_extra_sram_save_size()>bytes)
+		bytes=emu.mapper->aurora_extra_sram_save_size();
 	if ( bytes > emu.impl->sram_size ) bytes = emu.impl->sram_size;
 	return out->write( emu.impl->sram, bytes );
 }
@@ -212,7 +214,10 @@ const char * Nes_Emu::load_battery_ram( Auto_File_Reader in )
 	emu.sram_present = true;
 	long bytes = battery_ram_size();
 	if ( bytes <= 0 ) bytes = high_mem_size;
+	if (emu.mapper && emu.mapper->aurora_extra_sram_save_size()>bytes)
+		bytes=emu.mapper->aurora_extra_sram_save_size();
 	if ( bytes > emu.impl->sram_size ) bytes = emu.impl->sram_size;
+	/* AURORA_VN77_BATTERY_LOADED_NOTIFICATION: do not publish incomplete reads to the mapper. */
 	return in->read( emu.impl->sram, bytes );
 }
 

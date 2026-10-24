@@ -233,6 +233,15 @@ const char * Nes_Cart::load_ines( Auto_File_Reader in )
 		}
 	}
 
+	/* AURORA_VN165_NES2_M558_EEPROM: NES2 PRG-NVRAM field in byte 10
+ * encodes 512 bytes as 64<<3. Separate EEPROM from 8 KiB volatile WRAM.
+ * Legacy / other mappers retain their previous battery-ram behavior. */
+	if (nes2 && mapper_code() == 558) {
+		const unsigned nv_shift = (h.zero[2] >> 4) & 0x0F;
+		if (AuroraNes2RamSize(nv_shift) == 512L)
+			battery_ram_size_ = 512L;
+	}
+
 	if ( raw_prg_bytes <= 0 || raw_chr_bytes < 0 )
 		return "Invalid NES ROM size";
 

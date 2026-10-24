@@ -5,12 +5,15 @@
 
 #ifndef NES_PPU_IMPL_H
 #define NES_PPU_IMPL_H
+/* AURORA_M79_MMC5_ACCURACY_VN207: mapper-specific BG/OBJ banking */
 
 #include "nes_data.h"
 class Nes_State_;
 class Nes_Mapper;
 
 class Nes_Ppu_Impl : public ppu_state_t {
+	/* AURORA_VN215_1_MMC5_PRIVATE_ACCESS_FIX */
+	friend class Nes_Ppu_Rendering;
 public:
 	Nes_Ppu_Impl();
 	~Nes_Ppu_Impl();
@@ -44,8 +47,39 @@ public:
 	// Mapping
 	enum { vaddr_clock_mask = 0x1000 };
 	void set_nt_banks( int bank0, int bank1, int bank2, int bank3 );
+	/* vN174 MMC5: explicit 1 KiB nametable source; other mappers untouched. */
+	void set_nt_bank_external( int page, uint8_t* bytes, bool writable );
 	void set_chr_bank( int addr, int size, long data );
 	void set_chr_bank_ex( int addr, int size, long data );
+	// vN204: independent background CHR banking for MMC5 8x16 sprites.
+	// Sprite fetches retain chr_pages; BG fetches use mmc5_bg_pages when active.
+	void set_mmc5_bg_enabled( bool on ) { mmc5_bg_enabled = on; }
+	void set_mmc5_split(bool on,bool right,unsigned width,unsigned scroll,
+	                        unsigned bank,const uint8_t* nt) {
+		mmc5_split_on=on;mmc5_split_right=right;
+		mmc5_split_width=width;mmc5_split_scroll=scroll;
+		mmc5_split_bank=bank;mmc5_split_nt=nt;
+	}
+	bool mmc5_split_tile(int tile_x) const {
+		if (!mmc5_split_on || !(w2001&0x08) || tile_x<0 || tile_x>=32) return false;
+		return mmc5_split_right ? tile_x>=int(mmc5_split_width) : tile_x<int(mmc5_split_width);
+	}
+	int mmc5_split_y(int y) const {
+		int v=(y+int(mmc5_split_scroll))%240;return v<0?v+240:v;
+	}
+	void set_mmc5_bg_chr_bank( int addr, int size, long bank )
+	{
+		if ( chr_size <= 0 ) return;
+		for ( int off=0; off<size; off+=0x400 )
+		{
+			const unsigned page = (unsigned)(addr + off) >> 10;
+			if ( page >= 8 ) continue;
+			long offset = (bank * (long)size + off) % chr_size;
+			if ( offset < 0 ) offset += chr_size;
+			mmc5_bg_pages[page] = offset - (long)page * 0x400L;
+		}
+	}
+
 	void set_chr_ram_bank( int addr, int size, int bank );
 	void set_chr_read_or( int mask );
 	void set_nt_bank_chr( int page, long chr_1k_bank );
@@ -132,6 +166,7 @@ protected: //friend class Nes_Ppu_Rendering; private:
 	cached_tile_t const& get_bg_tile( int index );
 	cached_tile_t const& get_bg_tile_pec586( int tile, int nt_addr );
 	cached_tile_t const& get_bg_tile_ex( int exram_byte, int tile );
+	cached_tile_t const& get_bg_tile_split( int tile ) const;
 	bool pec586_1bpp_enabled() const { return pec586_1bpp_mode; }
 	cached_tile_t const& get_sprite_tile( uint8_t const* sprite );
 	uint8_t* get_nametable( int addr ) { return nt_banks [addr >> 10 & 3]; };
@@ -144,6 +179,12 @@ private:
 	// Mapping
 	enum { chr_page_size = 0x400 };
 	long chr_pages [chr_addr_size / chr_page_size];
+	/* vN204 MMC5: only enabled on mapper 5; no extra path for other carts. */
+	bool mmc5_bg_enabled;
+	bool mmc5_split_on,mmc5_split_right;
+	unsigned mmc5_split_width,mmc5_split_scroll,mmc5_split_bank;
+	const uint8_t* mmc5_split_nt;
+	long mmc5_bg_pages [chr_addr_size / chr_page_size];
 	long chr_pages_ex [chr_addr_size / chr_page_size];
 	long map_chr_addr( unsigned a ) /*const*/
 	{
@@ -218,6 +259,14 @@ inline void Nes_Ppu_Impl::set_nt_banks( int bank0, int bank1, int bank2, int ban
 	nt_writable [3] = true;
 	special_nt_mode = false;
 	nt_extra_ram_used = ((bank0 | bank1 | bank2 | bank3) & 2) != 0;
+}
+
+inline void Nes_Ppu_Impl::set_nt_bank_external(int page,uint8_t* bytes,bool writable)
+{
+	if ((unsigned)page >= 4 || !bytes) return;
+	nt_banks[page] = bytes;
+	nt_writable[page] = writable;
+	special_nt_mode = true;
 }
 
 inline int Nes_Ppu_Impl::map_palette( int addr )

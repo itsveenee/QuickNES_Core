@@ -178,6 +178,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA */
 #include "mappers/aurora_vn45_mapper553.hpp"
 #include "mappers/aurora_vn54_mapper554.hpp"
 #include "mappers/aurora_vn37_mapper557.hpp"
+#include "mappers/aurora_vN118_mapper35_209_FAST_CANDIDATE.hpp"
+#include "mappers/aurora_vn71_mapper272_CANDIDATE.hpp"
+#include "mappers/aurora_vn66_mapper540_quicknes_CANDIDATE.hpp"
+#include "mappers/aurora_vn71_mapper558_CANDIDATE.hpp"
+#include "mappers/aurora_vn106_mapper219.hpp"
+#include "mappers/aurora_vn107_mapper249.hpp"
 #include "mappers/aurora_37_40_91_150.hpp"
 #include "mappers/aurora_mapper090_160.hpp"
 #include "mappers/aurora_neighbor_gaps.hpp"
@@ -442,7 +448,8 @@ if (mapperCode == 176 &&
     case   1: mapper = new Mapper001(); break;
     case   2: mapper = new Mapper002(); break;
     case   3: mapper = new Mapper003(); break;
-    case   4: mapper = new Mapper004(); break;
+    case  35: mapper = new Mapper035(); break;
+    case   4: mapper = (cart->submapper_code() == 5) ? static_cast<Nes_Mapper*>(new AuroraVn107Mapper249(true)) : static_cast<Nes_Mapper*>(new Mapper004()); break;
     case   5: mapper = new Mapper005(); break;
     case   7: mapper = new Mapper007(); break;
     case   9: mapper = new Mapper009(); break;
@@ -534,6 +541,8 @@ if (mapperCode == 176 &&
     case 189: mapper = new Mapper189(); break;
     case 197: mapper = new Mapper197(); break;
     case 215: mapper = new Mapper215(); break;
+    case 209: mapper = new Mapper209(); break;
+    case 219: mapper = new AuroraVn106Mapper219(); break;
     case 222: mapper = new Mapper222(); break;
     case  14: mapper = new Mapper014(); break;
     case  17: mapper = new Mapper017(); break;
@@ -602,9 +611,11 @@ if (mapperCode == 176 &&
     case 242: mapper = new AuroraVn42Mapper242(); break;
     case 243: mapper = new AuroraVn40Mapper243(); break;
     case 245: mapper = new AuroraVn34Mapper245(); break;
+    case 249: mapper = new AuroraVn107Mapper249(); break;
     case 258: mapper = new AuroraVn51Mapper258(); break;
     case 263: mapper = new AuroraVn35Mapper263(); break;
     case 268: mapper = new AuroraVn55Mapper268(); break;
+    case 272: mapper = new Mapper272(); break;
     case 302: mapper = new AuroraVn28Mapper302(); break;
     case 303: mapper = new AuroraVn29Mapper303(); break;
     case 304: mapper = new AuroraVn31Mapper304(); break;
@@ -616,11 +627,13 @@ if (mapperCode == 176 &&
     case 415: mapper = new AuroraVn30Mapper415(); break;
     case 525: mapper = new AuroraVn31Mapper525(); break;
     case 538: mapper = new AuroraVn29Mapper538(); break;
+    case 540: mapper = new AuroraVn66Mapper540Candidate(); break;
     case 549: mapper = new AuroraVn28Mapper549(); break;
     case 551: mapper = new AuroraVn37Mapper551(); break;
     case 553: mapper = new AuroraVn45Mapper553(); break;
     case 554: mapper = new AuroraVn54Mapper554(); break;
     case 557: mapper = new AuroraVn37Mapper557(); break;
+    case 558: mapper = new Mapper558(); break;
     case 552: mapper = new Mapper552(); break;
     default: break;
   }

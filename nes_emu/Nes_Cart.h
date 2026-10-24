@@ -30,6 +30,11 @@ public:
 	// True if cartridge claims to have battery-backed memory
 	bool has_battery_ram() const;
 	long battery_ram_size() const;
+	/* AURORA_VN76_NES2_PERSIST_METADATA */
+	long prg_volatile_ram_size() const { return prg_volatile_ram_size_; }
+	long prg_nonvolatile_ram_size() const { return prg_nonvolatile_ram_size_; }
+	/* AURORA_VN79_NES2_35_RAM_SEMANTICS */
+	bool nes2_header() const { return nes2_header_; }
 	
 	// Size of PRG data
 	long prg_size() const { return prg_size_; }
@@ -73,6 +78,9 @@ private:
 	long prg_size_;
 	long chr_size_;
 	long battery_ram_size_;
+	long prg_volatile_ram_size_;
+	long prg_nonvolatile_ram_size_;
+	bool nes2_header_;
 	unsigned mapper;
 	unsigned mapper_code_value;
 	unsigned submapper;
@@ -89,6 +97,12 @@ inline long Nes_Cart::battery_ram_size() const
 	 * battery bit must not promote it to QuickNES' generic 8 KiB save. */
 	if ( mapper_code_value == 164 )
 		return 0x0200;
+	/* Mapper 558: two SRAM banks form a non-overlapping persistable
+	 * backing store: bytes 0..511 = EEPROM; $6000 WRAM uses bank 1.
+	 * 16 KiB container stores both and is intentionally not a
+	 * raw 512-byte FCEUmm EEPROM save-file format. */
+	if ( mapper_code_value == 558 && prg_nonvolatile_ram_size_ == 512 )
+		return 0x4000;
 	if ( battery_ram_size_ > 0 )
 		return battery_ram_size_;
 	/* Existing Bandai EEPROM front-end compatibility: these mappers
@@ -123,6 +137,7 @@ inline void Nes_Cart::set_mapper( int mapper_lsb, int mapper_msb )
 inline void Nes_Cart::set_mapper_nes2(
 	int mapper_lsb, int mapper_msb, int mapper_ext )
 {
+	nes2_header_ = true;
 	mapper = mapper_msb * 0x100 + mapper_lsb;
 	mapper_code_value =
 		((mapper_ext & 0x0F) << 8) |

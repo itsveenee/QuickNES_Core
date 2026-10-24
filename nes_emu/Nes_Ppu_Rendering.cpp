@@ -50,7 +50,10 @@ inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile( int index )
 	// use index directly, since cached tile is same size as native tile
 	BOOST_STATIC_ASSERT( sizeof (cached_tile_t) == bytes_per_tile );
 	return *(Nes_Ppu_Impl::cached_tile_t*)
-			((uint8_t*) tile_cache + map_chr_addr( index * bytes_per_tile ));
+			((uint8_t*) tile_cache +
+			((mmc5_bg_enabled && (w2000 & 0x20)) ?
+			(mmc5_bg_pages[((unsigned)index * bytes_per_tile >> 10) & 7] + index * bytes_per_tile) :
+			map_chr_addr( index * bytes_per_tile )));
 }
 
 /* AURORA_QN_PEC586_TILE_DECODE_V7_20260917
@@ -83,6 +86,14 @@ inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile_ex( int exra
 	BOOST_STATIC_ASSERT( sizeof (cached_tile_t) == bytes_per_tile );
 	return *(Nes_Ppu_Impl::cached_tile_t*)
 			((uint8_t*) tile_cache + exgrafix_tile_offset( exram_byte, tile ));
+}
+
+/* vN211: 4 KiB CHR bank for MMC5 vertical split. The bank comes from
+ * $5202, independently of $5120-$512B and $5130. */
+inline Nes_Ppu_Impl::cached_tile_t const& Nes_Ppu_Impl::get_bg_tile_split(int tile) const
+{
+	const long addr=(long(mmc5_split_bank)*0x1000L+(long(tile)&255L)*bytes_per_tile) % chr_size;
+	return *(cached_tile_t const*)((uint8_t*)tile_cache + addr);
 }
 
 // Fill
@@ -174,6 +185,8 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 		int height = 8 - (vram_addr >> 12);
 		if ( height > remain )
 			height = remain;
+		// Split scroll is per visible scanline, not a fixed nametable tile row.
+		if (mmc5_split_on && height>1)height=1;
 		
 		// handle hscroll change before next scanline
 		int hscroll_changed = (vram_addr ^ vram_temp) & 0x41f;
@@ -211,6 +224,7 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 		uint8_t const* attr_table = &nametable [0x3c0 | (addr >> 4 & 0x38)];
 		int bg_bank = (w2000 << 4) & 0x100;
 		addr += left_clip;
+		int split_col=left_clip;
 		
 		// output pixels
 		ptrdiff_t const row_bytes = scanline_row_bytes;
@@ -267,6 +281,7 @@ void Nes_Ppu_Rendering::draw_background_( int remain )
 				#include "Nes_Ppu_Bg.h"
 			}
 		}
+		mmc5_render_y += height;
 	}
 	while ( remain );
 }
@@ -432,6 +447,7 @@ void Nes_Ppu_Rendering::draw_scanlines( int start, int count,
 		uint8_t* pixels, long pitch, int mode )
 {
 	scanline_pixels = pixels + image_left;
+	mmc5_render_y=start;
 	scanline_row_bytes = pitch;
 	
 	int const obj_mask = 2;

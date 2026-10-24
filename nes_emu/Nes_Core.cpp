@@ -35,6 +35,7 @@ Nes_Core::Nes_Core() : ppu( this )
 	cart = NULL;
 	impl = NULL;
 	mapper = NULL;
+	aurora_cpu_write_observer_enabled = false;
 	memset( &nes, 0, sizeof nes );
 	memset( &joypad, 0, sizeof joypad );
 }
@@ -56,6 +57,7 @@ void Nes_Core::close()
 	cart = NULL;
 	delete mapper;
 	mapper = NULL;
+	aurora_cpu_write_observer_enabled = false;
 	
 	ppu.close_chr();
 	
@@ -71,6 +73,7 @@ const char * Nes_Core::open( Nes_Cart const* new_cart )
 	mapper = Nes_Mapper::create( new_cart, this );
 	if ( !mapper ) 
 		return unsupported_mapper;
+	aurora_cpu_write_observer_enabled = mapper->aurora_observe_all_cpu_writes();
 
 	ppu.set_vram_address_hook( mapper->needs_vram_address_hook() ? mapper : NULL );
 
@@ -129,12 +132,17 @@ void Nes_Core::save_state( Nes_State_* out ) const
 			bytes = mapper->aurora_extra_sram_save_size();
 		if ( bytes > impl_t::sram_size )
 			bytes = impl_t::sram_size;
+		// Preserve the pre-vN215 QuickNES snapshot capacity (32KiB).
+		// The physical 128KiB MMC5 battery memory is unchanged.
+		if ( bytes > 0x8000 ) bytes = 0x8000;
 		out->sram_size = bytes;
 		memcpy( out->sram, impl->sram, out->sram_size );
 	}
-	
+
 	out->mapper->size = 0;
 	mapper->save_state( *out->mapper );
+	// vN210 optional 1KiB MMC5 ExRAM: do not overload 512-byte mapper state.
+	out->mmc5_exram_valid = mapper->aurora_save_exram(out->mmc5_exram,0x400);
 	out->mapper_valid = true;
 }
 
@@ -179,17 +187,21 @@ void Nes_Core::load_state( Nes_State_ const& in )
 	if ( in.ram_valid )
 		memcpy( cpu::low_mem, in.ram, in.ram_size );
 	
-	sram_present = false;
+	// States created by vN215 contain no SRAM: leave battery untouched.
+	// Older states that include SRAM restore the saved contents.
 	if ( in.sram_size )
 	{
 		sram_present = true;
-		memcpy( impl->sram, in.sram, min( (int) in.sram_size, (int) sizeof impl->sram ) );
+		long bytes = min( (long) in.sram_size, (long) sizeof impl->sram );
+		memcpy( impl->sram, in.sram, bytes );
 		sram_bank = 0;
-		enable_sram( true ); // mapper can override (read-only, unmapped, etc.)
+		enable_sram( true ); // mapper may override bank/read/write policy
 	}
-	
+
 	if ( in.mapper_valid ) // restore last since it might reconfigure things
 		mapper->load_state( *in.mapper );
+		if (in.mmc5_exram_valid)
+			mapper->aurora_load_exram(in.mmc5_exram,0x400);
 }
 
 void Nes_Core::enable_prg_6000()
@@ -226,7 +238,9 @@ void Nes_Core::enable_sram( bool b, bool read_only )
 
 void Nes_Core::set_sram_bank( int bank )
 {
-	const int bank_count = impl_t::sram_size / impl_t::sram_window_size;
+	// MMC5 bank bits A13-A16: up to 128KiB. Keep legacy bank wrap for
+	// other mappers to avoid changing SXROM/other board behavior.
+	const int bank_count = (cart && cart->mapper_code() == 5) ? 16 : 4;
 	if ( bank < 0 ) bank = 0;
 	sram_bank = (unsigned) bank % (unsigned) bank_count;
 
@@ -1010,11 +1024,19 @@ void Nes_Core::reset( bool full_reset, bool erase_battery_ram )
 	error_count = 0;
 }
 
+/* AURORA_VN151_JY_CPU_BUS_OBSERVER: IRQ/NMI stack pushes are outside the CPU core WRITE macro. */
+void Nes_Core::aurora_interrupt_push(int data)
+{
+	if (aurora_cpu_write_observer_enabled)
+		mapper->aurora_cpu_write_event(cpu_time(),(nes_addr_t)(0x100U | cpu::r.sp),data & 255);
+	cpu::push_byte(data);
+}
+
 void Nes_Core::vector_interrupt( nes_addr_t vector )
 {
-	cpu::push_byte( cpu::r.pc >> 8 );
-	cpu::push_byte( cpu::r.pc & 0xFF );
-	cpu::push_byte( cpu::r.status | 0x20 ); // reserved bit is set
+	aurora_interrupt_push( cpu::r.pc >> 8 );
+	aurora_interrupt_push( cpu::r.pc & 0xFF );
+	aurora_interrupt_push( cpu::r.status | 0x20 ); // reserved bit is set
 	
 	cpu_adjust_time( 7 );
 	cpu::r.status |= irq_inhibit_mask;

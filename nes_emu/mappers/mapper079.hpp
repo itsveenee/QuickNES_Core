@@ -81,6 +81,8 @@ public:
 
 	virtual void reset_state()
 	{
+		// vN202: power-on data latch is zero, no IRQ, bus conflict or audio.
+		regs = 0;
 		intercept_writes( 0x4000, 0x1000 );
 		intercept_writes( 0x5000, 0x1000 );
 	}
@@ -94,7 +96,8 @@ public:
 		if ( !multicart && aurora_nina_krazy_vertical( cart() ) )
 			mirror_vert();
 
-		write_intercepted( 0, 0x4100, regs );
+		// Restore PRG/CHR state directly; do not simulate an extraneous CPU write.
+		write_regs();
 	}
 
 	virtual bool write_intercepted( nes_time_t, nes_addr_t addr , int data )
@@ -104,7 +107,8 @@ public:
 		 *   010x xxx1 xxxx xxxx
 		 * i.e. $4100-$41FF, $4300-$43FF ... $5F00-$5FFF.
 		 * Do not claim the A8=0 expansion addresses. */
-		if ( (addr & 0x4100) != 0x4100 )
+		// NINA decodes 010x xxx1 xxxx xxxx, regardless of other address bits.
+		if ( (addr & 0x4100u) != 0x4100u )
 			return false;
 
 		regs = data;
@@ -144,4 +148,5 @@ void Mapper_AveNina< multicart >::write_regs()
 	}
 }
 
+/* AURORA_M79_MMC5_ACCURACY_VN207: NINA-03/06 fixed 32K PRG + 8K CHR physical decoding. */
 typedef Mapper_AveNina<false> Mapper079;

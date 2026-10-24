@@ -55,6 +55,11 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	mmc24_latched[1] = 0;
 
 	exgrafix_exram = NULL;
+	mmc5_bg_enabled = false;
+	mmc5_split_on=false;mmc5_split_right=false;
+	mmc5_split_width=mmc5_split_scroll=mmc5_split_bank=0;
+	mmc5_split_nt=NULL;
+	for (int i=0;i<8;++i) mmc5_bg_pages[i]=0;
 	exgrafix_chr_base = 0;
 	exgrafix_chr_mask = 0;
 
@@ -381,6 +386,12 @@ static uint8_t const initial_palette [0x20] =
 
 void Nes_Ppu_Impl::reset( bool full_reset )
 {
+	// vN204: other mappers never inherit MMC5 background bank routing.
+	mmc5_bg_enabled = false;
+	mmc5_split_on=false;mmc5_split_nt=NULL;
+	exgrafix_exram = NULL;
+	exgrafix_chr_base = 0;
+	exgrafix_chr_mask = 0;
 	w2000 = 0;
 	w2001 = 0;
 	r2002 = 0x80;

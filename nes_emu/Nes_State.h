@@ -62,6 +62,8 @@ public:
 	enum { chr_max = 0x8000 };
 	uint8_t *ram, *sram, *spr_ram, *nametable, *chr;
 	uint8_t* nametable_extra;
+	uint8_t* mmc5_exram;
+	bool mmc5_exram_valid;
 	nes_state_t             nes;
 	Nes_Cpu::registers_t*   cpu;
 	joypad_state_t*         joypad;
@@ -108,6 +110,7 @@ private:
 	uint8_t spr_ram [spr_ram_size];
 	uint8_t nametable [nametable_max];
 	uint8_t nametable_extra [nametable_max];
+	uint8_t mmc5_exram [0x400];
 	uint8_t chr [chr_max];
 	
 	friend class Nes_Emu;

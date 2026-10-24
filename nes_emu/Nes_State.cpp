@@ -48,6 +48,7 @@ Nes_State::Nes_State()
 	/* AURORA_FINAL10_STATE_V1 */
 	Nes_State_::nametable_extra = this->nametable_extra;
 	Nes_State_::chr         = this->chr;
+	Nes_State_::mmc5_exram = this->mmc5_exram;
 }
 
 void Nes_State_::clear()
@@ -66,6 +67,7 @@ void Nes_State_::clear()
 	spr_ram_valid  = false;
 	nametable_size = 0;
 	chr_size       = 0;
+	mmc5_exram_valid = false;
 }
 
 // write
@@ -155,6 +157,8 @@ const char * Nes_State_::write_blocks( Nes_File_Writer& out ) const
 	
 	if ( sram_size )
 		RETURN_ERR( out.write_block( FOUR_CHAR('SRAM'), sram, sram_size ) );
+	if ( mmc5_exram_valid )
+		RETURN_ERR( out.write_block( FOUR_CHAR('M5EX'), mmc5_exram, 0x400 ) );
 	
 	return 0;
 }
@@ -274,6 +278,12 @@ const char * Nes_State_::read_blocks( Nes_File_Reader& in )
 			RETURN_ERR( in.read_block_data( chr, chr_max ) );
 			break;
 			
+		case FOUR_CHAR('M5EX'):
+			if (in.remain() != 0x400) return "invalid MMC5 ExRAM size";
+			RETURN_ERR( in.read_block_data( mmc5_exram, 0x400 ) );
+			mmc5_exram_valid = true;
+			break;
+
 		case FOUR_CHAR('SRAM'):
 			sram_size = in.remain();
 			RETURN_ERR( in.read_block_data( sram, sram_max ) );

@@ -30,6 +30,7 @@ private:
 
 	void draw_scanlines( int start, int count, uint8_t* pixels, long pitch, int mode );
 	void draw_background_( int count );
+	int mmc5_render_y; // vN211 current video scanline during split
 	
 	// destination for draw functions; avoids extra parameters
 	uint8_t* scanline_pixels; 

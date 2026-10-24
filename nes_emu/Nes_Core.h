@@ -15,6 +15,8 @@ class Nes_Cart;
 class Nes_State;
 
 class Nes_Core : private Nes_Cpu {
+	/* AURORA_VN215_1_MMC5_PRIVATE_ACCESS_FIX */
+	friend class Mapper005;
 	typedef Nes_Cpu cpu;
 public:
 	Nes_Core();
@@ -37,7 +39,7 @@ public: private: friend class Nes_Emu;
 	
 	struct impl_t
 	{
-		enum { sram_window_size = 0x2000, sram_size = 0x8000 };
+		enum { sram_window_size = 0x2000, sram_size = 0x20000 };
 		uint8_t sram [sram_size];
 		Nes_Apu apu;
 		
@@ -54,6 +56,8 @@ public:
 	int joypad_read_count;
 	Nes_Cart const* cart;
 	Nes_Mapper* mapper;
+	/* AURORA_VN151_JY_CPU_BUS_OBSERVER */
+	bool aurora_cpu_write_observer_enabled;
 	nes_state_t nes;
 	Nes_Ppu ppu;
 
@@ -98,6 +102,14 @@ public: private: friend class Nes_Mapper;
 	void enable_prg_6000();
 	void enable_sram( bool enabled, bool read_only = false );
 	void set_sram_bank( int bank );
+public:
+	// vN206: peek current PRG mapped page, no mapper read recursion.
+	int mapper_prg_peek( nes_addr_t addr ) { return *cpu::get_code(addr); }
+	void mapper_pcm_read_intercept( bool on ) {
+		for(unsigned a=0x8000; a<0xc000; a+=cpu::page_size)
+			data_reader_mapped[a >> page_bits]=(unsigned char)on;
+	}
+private:
 	/* AURORA_FINAL10_SRAM_HELPERS_V1 */
 	int mapper_sram_read( nes_addr_t addr ) const
 	{
@@ -141,6 +153,9 @@ public: private: friend class Nes_Cpu;
 	int  cpu_read( nes_addr_t, nes_time_t );
 	void cpu_write( nes_addr_t, int data, nes_time_t );
 	void cpu_write_2007( int data );
+	void aurora_notify_cpu_write(nes_addr_t,int,nes_time_t);
+	void aurora_write_low(nes_addr_t,int,nes_time_t);
+	void aurora_interrupt_push(int);
 	
 private:
 	unsigned char data_reader_mapped [page_count + 1]; // extra entry for overflow

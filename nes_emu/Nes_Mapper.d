@@ -8,7 +8,7 @@ nes_emu/Nes_Mapper.o: nes_emu/Nes_Mapper.cpp nes_emu/Nes_Mapper.h \
  nes_emu/Nes_Mapper.h nes_emu/blargg_source.h \
  nes_emu/mappers/mapper001.hpp nes_emu/mappers/mapper002.hpp \
  nes_emu/mappers/mapper003.hpp nes_emu/mappers/mapper004.hpp \
- nes_emu/Nes_Core.h nes_emu/mappers/mapper005.hpp \
+ nes_emu/Nes_Core.h nes_emu/mappers/mapper005.hpp nes_emu/Blip_Buffer.h \
  nes_emu/mappers/mapper007.hpp nes_emu/mappers/mapper009.hpp \
  nes_emu/mappers/mapper010.hpp nes_emu/mappers/mapper011.hpp \
  nes_emu/mappers/mapper013.hpp nes_emu/mappers/mapper015.hpp \
@@ -120,6 +120,18 @@ nes_emu/Nes_Mapper.o: nes_emu/Nes_Mapper.cpp nes_emu/Nes_Mapper.h \
  nes_emu/mappers/aurora_vn45_mapper553.hpp \
  nes_emu/mappers/aurora_vn54_mapper554.hpp \
  nes_emu/mappers/aurora_vn37_mapper557.hpp \
+ nes_emu/mappers/aurora_vN118_mapper35_209_FAST_CANDIDATE.hpp \
+ nes_emu/mappers/aurora_vN118_jyasic_fast.hpp \
+ nes_emu/mappers/aurora_vn71_mapper272_CANDIDATE.hpp \
+ nes_emu/mappers/aurora_vn90_mapper272_model.hpp \
+ nes_emu/mappers/aurora_vn66_mapper540_quicknes_CANDIDATE.hpp \
+ nes_emu/mappers/aurora_vn92_mapper540_fds_bridge_STAGING.hpp \
+ nes_emu/mappers/aurora_vn92_mapper540_core_STAGING.hpp \
+ nes_emu/mappers/aurora_vn61_fds_sound_STAGING.hpp \
+ nes_emu/mappers/aurora_vn71_mapper558_CANDIDATE.hpp \
+ nes_emu/mappers/aurora_vn112_mapper558_model.hpp \
+ nes_emu/mappers/aurora_vn106_mapper219.hpp \
+ nes_emu/mappers/aurora_vn107_mapper249.hpp \
  nes_emu/mappers/aurora_37_40_91_150.hpp \
  nes_emu/mappers/aurora_mapper090_160.hpp \
  nes_emu/mappers/aurora_neighbor_gaps.hpp \
@@ -150,6 +162,7 @@ nes_emu/mappers/mapper003.hpp:
 nes_emu/mappers/mapper004.hpp:
 nes_emu/Nes_Core.h:
 nes_emu/mappers/mapper005.hpp:
+nes_emu/Blip_Buffer.h:
 nes_emu/mappers/mapper007.hpp:
 nes_emu/mappers/mapper009.hpp:
 nes_emu/mappers/mapper010.hpp:
@@ -308,6 +321,18 @@ nes_emu/mappers/aurora_vn37_mapper551.hpp:
 nes_emu/mappers/aurora_vn45_mapper553.hpp:
 nes_emu/mappers/aurora_vn54_mapper554.hpp:
 nes_emu/mappers/aurora_vn37_mapper557.hpp:
+nes_emu/mappers/aurora_vN118_mapper35_209_FAST_CANDIDATE.hpp:
+nes_emu/mappers/aurora_vN118_jyasic_fast.hpp:
+nes_emu/mappers/aurora_vn71_mapper272_CANDIDATE.hpp:
+nes_emu/mappers/aurora_vn90_mapper272_model.hpp:
+nes_emu/mappers/aurora_vn66_mapper540_quicknes_CANDIDATE.hpp:
+nes_emu/mappers/aurora_vn92_mapper540_fds_bridge_STAGING.hpp:
+nes_emu/mappers/aurora_vn92_mapper540_core_STAGING.hpp:
+nes_emu/mappers/aurora_vn61_fds_sound_STAGING.hpp:
+nes_emu/mappers/aurora_vn71_mapper558_CANDIDATE.hpp:
+nes_emu/mappers/aurora_vn112_mapper558_model.hpp:
+nes_emu/mappers/aurora_vn106_mapper219.hpp:
+nes_emu/mappers/aurora_vn107_mapper249.hpp:
 nes_emu/mappers/aurora_37_40_91_150.hpp:
 nes_emu/mappers/aurora_mapper090_160.hpp:
 nes_emu/mappers/aurora_neighbor_gaps.hpp:
